@@ -17,7 +17,7 @@ import torch
 import dmc
 import utils
 from logger import Logger
-# from replay_buffer import make_replay_loader
+from replay_buffer import make_replay_loader
 # from video import VideoRecorder
 import wandb
 import omegaconf
@@ -92,86 +92,35 @@ def main(cfg):
     )
     logger = Logger(work_dir, use_tb=cfg.use_tb, use_wandb=cfg.use_wandb)
 
-# @hydra.main(config_path=".", config_name="pretrain")
-# def main(cfg):
-#     work_dir = Path.cwd()
-#     print(f"workspace: {work_dir}")
+    replay_train_dir = Path(cfg.replay_buffer_dir) / domain
+    train_loader = make_replay_loader(
+        env,
+        replay_train_dir,
+        cfg.replay_buffer_size,
+        cfg.batch_size,
+        cfg.replay_buffer_num_workers,
+        cfg.discount,
+        domain,
+        cfg.agent.transformer_cfg.traj_length,
+        relabel=False,
+    )
 
-#     # Set seed for random, numpy and torch
-#     utils.set_seed_everywhere(cfg.seed)
-#     device = torch.device(cfg.device)
+    train_iter = iter(train_loader)
 
-#     # create envs
-#     env = dmc.make(cfg.task, seed=cfg.seed)
+    global_step = cfg.resume_step
 
-#     # create agent
-#     agent = hydra.utils.instantiate(
-#         cfg.agent,
-#         obs_shape=env.observation_spec().shape,
-#         action_shape=env.action_spec().shape,
-#     )
+    train_until_step = utils.Until(cfg.num_grad_steps)
+    eval_every_step = utils.Every(cfg.eval_every_steps)
+    log_every_step = utils.Every(cfg.log_every_steps)
 
-#     if cfg.resume is True:
-#         resume_dir = get_dir(cfg)
-#         payload = torch.load(resume_dir)
-#         agent.model.load_state_dict(payload["model"])
-
-#     domain = get_domain(cfg.task)
-#     snapshot_dir = work_dir / Path(cfg.snapshot_dir) / domain / str(cfg.seed)
-#     snapshot_dir.mkdir(exist_ok=True, parents=True)
-
-#     # create logger
-#     cfg.agent.obs_shape = env.observation_spec().shape
-#     cfg.agent.action_shape = env.action_spec().shape
-#     exp_name = "_".join([cfg.agent.name, domain, str(cfg.seed)])
-#     wandb_config = omegaconf.OmegaConf.to_container(
-#         cfg, resolve=True, throw_on_missing=True
-#     )
-#     wandb.init(
-#         project=cfg.project,
-#         entity="Bibarel-cenia",
-#         name=exp_name,
-#         config=wandb_config,
-#         settings=wandb.Settings(
-#             start_method="thread",
-#             _disable_stats=True,
-#         ),
-#         mode="online" if cfg.use_wandb else "offline",
-#         notes=cfg.notes,
-#     )
-#     logger = Logger(work_dir, use_tb=cfg.use_tb, use_wandb=cfg.use_wandb)
-
-#     # This should be the path to the dataset for offline pretraining
-#     replay_train_dir = Path(cfg.replay_buffer_dir) / domain
-#     print(f"replay dir: {replay_train_dir}")
-#     train_loader = make_replay_loader(
-#         env,
-#         replay_train_dir,
-#         cfg.replay_buffer_size,
-#         cfg.batch_size,
-#         cfg.replay_buffer_num_workers,
-#         cfg.discount,
-#         domain,
-#         cfg.agent.transformer_cfg.traj_length,
-#         relabel=False,
-#     )
-#     train_iter = iter(train_loader)
-#     # create video recorders
-
-#     timer = utils.Timer()
-
-#     global_step = cfg.resume_step
-
-#     train_until_step = utils.Until(cfg.num_grad_steps)
-#     eval_every_step = utils.Every(cfg.eval_every_steps)
-#     log_every_step = utils.Every(cfg.log_every_steps)
-#   
-#   # True until global_step gets to cfg.num_grad_steps
-#     while train_until_step(global_step):
-#         # try to evaluate
-#         # Train on a single batch and permform a gradient step
-#         metrics = agent.update(train_iter, global_step)
-#         logger.log_metrics(metrics, global_step, ty="train")
+  # True until global_step gets to cfg.num_grad_steps
+    while train_until_step(global_step):
+        # try to evaluate
+        # Train on a single batch and permform a gradient step
+        metrics = agent.update(train_iter, global_step)
+        # Log each metric using the "Train meter group" on the logger
+        logger.log_metrics(metrics, global_step, ty="train")
+        raise Exception
 #         if log_every_step(global_step):
 #             elapsed_time, total_time = timer.reset()
 #             with logger.log_and_dump_ctx(global_step, ty="train") as log:

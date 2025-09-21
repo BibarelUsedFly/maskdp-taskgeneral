@@ -1,0 +1,3 @@
+- agent=ddpg
+- supervised=true
+- task=walker_walk

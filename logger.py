@@ -46,6 +46,7 @@ MTRL_FORMAT = [
 
 
 class AverageMeter(object):
+    '''Keeps track of an average value'''
     def __init__(self):
         self._sum = 0
         self._count = 0
@@ -59,6 +60,7 @@ class AverageMeter(object):
 
 
 class MetersGroup(object):
+    '''Keeps a dict of average values for different keys'''
     def __init__(self, csv_file_name, formating, use_wandb):
         self._csv_file_name = csv_file_name
         self._formating = formating
@@ -71,6 +73,10 @@ class MetersGroup(object):
         self._meters[key].update(value, n)
 
     def _prime_meters(self):
+        '''
+        Returns a dict with the current averages for dumping
+        to csv, console and wandb
+        '''
         data = dict()
         for key, meter in self._meters.items():
             if key.startswith("train"):
@@ -152,6 +158,10 @@ class MetersGroup(object):
 
 
 class Logger(object):
+    '''
+    Since we're using mode=None in pretrain.py, this creates two MetersGroup
+    objects. One with TRAIN_FORMAT and one with EVAL_FORMAT
+    '''
     def __init__(self, log_dir, use_tb, use_wandb, mode=None):
         self._log_dir = log_dir
         self._train_mg = MetersGroup(
@@ -175,15 +185,10 @@ class Logger(object):
             self._sw = None
         self.use_wandb = use_wandb
 
-    def _try_sw_log(self, key, value, step):
-        if self._sw is not None:
-            self._sw.add_scalar(key, value, step)
-
     def log(self, key, value, step):
         assert key.startswith("train") or key.startswith("eval")
         if type(value) == torch.Tensor:
             value = value.item()
-        self._try_sw_log(key, value, step)
         mg = self._train_mg if key.startswith("train") else self._eval_mg
         mg.log(key, value)
 
