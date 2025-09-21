@@ -19,7 +19,7 @@ resume: false
 resume_dir: none
 resume_step: 0
 # dataset
-replay_buffer_dir: ./maskdp_data/maskdp_train
+replay_buffer_dir: ../maskdp_data/maskdp_train
 replay_buffer_size: 100000000
 replay_buffer_num_workers: 16
 batch_size: ${agent.batch_size}

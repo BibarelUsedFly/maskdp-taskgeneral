@@ -1,0 +1,15 @@
+{
+  "os":  "Linux-6.6.87.2-microsoft-standard-WSL2-x86_64-with-glibc2.17",
+  "python":  "CPython 3.8.20",
+  "startedAt":  "2025-09-21T09:09:59.412852Z",
+  "program":  "pretest.py",
+  "git":  {
+    "remote":  "https://github.com/BibarelUsedFly/maskdp-taskgeneral.git",
+    "commit":  "8565f44529afa4d9c2e457cf67e1d40523e0daf6"
+  },
+  "email":  "bibarelusedfly@gmail.com",
+  "root":  "/home/dcc/maskdp-taskgeneral/models",
+  "host":  "DCC-B40-1",
+  "executable":  "/home/dcc/miniconda3/envs/maskdp/bin/python",
+  "writerId":  "t262dqqef39puml5jzudxuz9oc954sqk"
+}

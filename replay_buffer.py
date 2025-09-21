@@ -88,7 +88,6 @@ class OfflineReplayBuffer(IterableDataset):
             worker_id = torch.utils.data.get_worker_info().id
         except:
             worker_id = 0
-        print("Replay dir is", self._replay_dir)
         eps_fns = sorted(
             self._replay_dir.rglob("*.npz")
         )  # get all episodes recursively
