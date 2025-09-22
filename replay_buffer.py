@@ -109,7 +109,6 @@ class OfflineReplayBuffer(IterableDataset):
         if not self._loaded:
             self._load(self._relabel)
             self._loaded = True
-        print("Sampling from", self._episode_fns)
         eps_fn = random.choice(self._episode_fns)
         return self._episodes[eps_fn]
 

@@ -259,9 +259,6 @@ class MaskedDPAgent:
     def update(self, replay_iter, step=None):
         metrics = dict()
 
-        print("REPLAY ITER:")
-        print(replay_iter)
-
         batch = next(replay_iter)
         obs, action, _, _, _, _ = utils.to_torch(batch, self.device)
 
