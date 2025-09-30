@@ -91,6 +91,7 @@ def main(cfg):
     logger = Logger(work_dir, use_tb=cfg.use_tb, use_wandb=cfg.use_wandb)
 
     replay_train_dir = Path(cfg.replay_buffer_dir) / domain
+    print("Using dataset:", replay_train_dir)
     train_loader = make_replay_loader(
         env,
         replay_train_dir,
@@ -113,7 +114,7 @@ def main(cfg):
     eval_every_step = utils.Every(cfg.eval_every_steps)
     log_every_step = utils.Every(cfg.log_every_steps)
 
-  # True until global_step gets to cfg.num_grad_steps
+    # True until global_step gets to cfg.num_grad_steps
     while train_until_step(global_step):
         # try to evaluate
         # Train on a single batch and permform a gradient step
@@ -141,6 +142,7 @@ def main(cfg):
                 torch.save(payload, f)
 
         global_step += 1
+    print("Done!")
 
 
 if __name__ == "__main__":
