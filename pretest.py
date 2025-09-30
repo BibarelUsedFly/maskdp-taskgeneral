@@ -78,8 +78,6 @@ def main(cfg):
     wandb_config = omegaconf.OmegaConf.to_container(
         cfg, resolve=True, throw_on_missing=True
     )
-    print(type(wandb_config))
-    pprint(wandb_config)
     wandb.init(
         project=cfg.project,
         # This has to be your WandB user-institution
@@ -107,6 +105,8 @@ def main(cfg):
 
     train_iter = iter(train_loader)
 
+    timer = utils.Timer()
+
     global_step = cfg.resume_step
 
     train_until_step = utils.Until(cfg.num_grad_steps)
@@ -120,24 +120,27 @@ def main(cfg):
         metrics = agent.update(train_iter, global_step)
         # Log each metric using the "Train meter group" on the logger
         logger.log_metrics(metrics, global_step, ty="train")
-        raise Exception
-#         if log_every_step(global_step):
-#             elapsed_time, total_time = timer.reset()
-#             with logger.log_and_dump_ctx(global_step, ty="train") as log:
-#                 log("fps", cfg.log_every_steps / elapsed_time)
-#                 log("total_time", total_time)
-#                 log("step", global_step)
+        # Log just registers the metrics on a MetersGroup instance
+        # inside the logger
+        if log_every_step(global_step):
+            elapsed_time, total_time = timer.reset()
+            with logger.log_and_dump_ctx(global_step, ty="train") as log:
+                log("fps", cfg.log_every_steps / elapsed_time)
+                log("total_time", total_time)
+                log("step", global_step)
+            # Upon exiting the context manager "LogAndDumpCtx", the logged
+            # data is actually dumped to WandB
 
-#         if global_step in cfg.snapshots:
-#             snapshot = snapshot_dir / f"snapshot_{global_step}.pt"
-#             payload = {
-#                 "model": agent.model.state_dict(),
-#                 "cfg": cfg.agent.transformer_cfg,
-#             }
-#             with snapshot.open("wb") as f:
-#                 torch.save(payload, f)
+        if global_step in cfg.snapshots:
+            snapshot = snapshot_dir / f"snapshot_{global_step}.pt"
+            payload = {
+                "model": agent.model.state_dict(),
+                "cfg": cfg.agent.transformer_cfg,
+            }
+            with snapshot.open("wb") as f:
+                torch.save(payload, f)
 
-#         global_step += 1
+        global_step += 1
 
 
 if __name__ == "__main__":

@@ -118,6 +118,7 @@ class MetersGroup(object):
 
         self._csv_writer.writerow(data)
         self._csv_file.flush()
+        # print("Writing to file:", self._csv_file_name)
 
     def _format(self, key, value, ty):
         if ty == "int":
@@ -145,6 +146,7 @@ class MetersGroup(object):
         wandb.log(data)
 
     def dump(self, step, prefix):
+        # print("Calling dump function in logger")
         if len(self._meters) == 0:
             return
         data = self._prime_meters()
@@ -152,7 +154,9 @@ class MetersGroup(object):
         if self.use_wandb:
             wandb_data = {prefix + "/" + key: val for key, val in data.items()}
             self._dump_to_wandb(data=wandb_data)
+        # print("Data to dump:", data)
         self._dump_to_csv(data)
+        # _dump_to_console only considers data in TRAIN_FORMAT
         self._dump_to_console(data, prefix)
         self._meters.clear()
 

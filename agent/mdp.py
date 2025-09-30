@@ -229,14 +229,14 @@ class MaskedDPAgent:
         loss.backward()
         self.opt.step()
 
-        if self.use_tb:
-            metrics["mask_loss"] = mask_loss.item()
-            metrics["state_loss"] = state_loss.item()
-            metrics["action_loss"] = action_loss.item()
+        metrics["mask_loss"] = mask_loss.item()
+        metrics["state_loss"] = state_loss.item()
+        metrics["action_loss"] = action_loss.item()
 
         return metrics
 
     def eval_validation(self, val_iter, step=None):
+        '''Not used in pretrain'''
         metrics = dict()
         batch = next(val_iter)
         obs, action, _, _, _, _ = utils.to_torch(batch, self.device)
