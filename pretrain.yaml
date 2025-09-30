@@ -6,8 +6,8 @@ defaults:
 task: walker_walk
 discount: 0.99
 # train settings
-num_grad_steps: 100 # NUMBER  OF TRAINING STEPS
-log_every_steps: 10
+num_grad_steps: 400010 # NUMBER  OF TRAINING STEPS
+log_every_steps: 1000
 # eval
 eval_every_steps: 10000
 num_eval_episodes: 10

@@ -143,7 +143,7 @@ class MetersGroup(object):
         print(" | ".join(pieces))
 
     def _dump_to_wandb(self, data):
-        print("WandB logging:", data)
+        # print("WandB logging:", data)
         wandb.log(data)
 
     def dump(self, step, prefix):
