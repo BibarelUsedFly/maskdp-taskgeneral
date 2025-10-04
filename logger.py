@@ -155,7 +155,7 @@ class MetersGroup(object):
         if self.use_wandb:
             wandb_data = {prefix + "/" + key: val for key, val in data.items()}
             self._dump_to_wandb(data=wandb_data)
-        # print("Dumping dafta:", data)
+        # print("Dumping data:", data)
         self._dump_to_csv(data)
         # _dump_to_console only considers data in TRAIN_FORMAT
         self._dump_to_console(data, prefix)

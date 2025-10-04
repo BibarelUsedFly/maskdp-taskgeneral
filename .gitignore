@@ -9,3 +9,5 @@ notebooks/
 slurm/
 data/
 datasets/
+models/
+snapshots/
