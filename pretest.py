@@ -6,7 +6,7 @@ import os
 
 os.environ["MKL_SERVICE_FORCE_INTEL"] = "1"
 # https://gymnasium.farama.org/environments/mujoco/
-os.environ["MUJOCO_GL"] = "disable" 
+os.environ["MUJOCO_GL"] = "disable" # egl doesn't work on Peteroa :(
 
 from pathlib import Path
 

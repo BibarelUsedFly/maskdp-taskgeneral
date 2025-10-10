@@ -18,7 +18,7 @@ snapshot_base_dir: snapshots
 batch_size: ${agent.batch_size}
 
 # goal loader dataset
-goal_buffer_dir: /home/Bibarel/workspace/maskdp_data/maskdp_eval
+goal_buffer_dir: /home/bibarel/workspace/maskdp_data/maskdp_eval
 goal_buffer_size: 100000000
 goal_buffer_num_workers: 4
 
@@ -35,4 +35,4 @@ replan: true
 
 hydra:
   run:
-    dir: "/home/Bibarel/workspace/maskdp_models/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}"
+    dir: "/home/bibarel/workspace/maskdp_models/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}"

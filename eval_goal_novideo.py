@@ -44,108 +44,6 @@ def get_dir(cfg):
     return snapshot
 
 
-def eval_seq_bc(
-    global_step,
-    agent,
-    env,
-    logger,
-    goal_iter,
-    device,
-    num_eval_episodes,
-    video_recorder,
-):
-    step, episode, total_dist2goal = 0, 0, []
-    eval_until_episode = utils.Until(num_eval_episodes)
-    batch = next(goal_iter)
-    start_obs, start_physics, goal_obs, goal_physics, timestep = utils.to_torch(
-        batch, device
-    )
-
-    while eval_until_episode(episode):
-        time_step = env.reset()
-        with env.physics.reset_context():
-            env.physics.set_state(start_physics[episode].cpu())
-        dist2goal = 1e6
-        video_recorder.init(env, enabled=True)
-        time_budget = timestep[episode] + 5
-        obs = start_obs[episode].unsqueeze(0)
-        for _ in range(time_budget):
-            with torch.no_grad(), utils.eval_mode(agent):
-                action = agent.act(obs, goal_obs[episode], global_step)
-            time_step = env.step(action)
-            obs_t = np.asarray(time_step.observation)
-            obs_t = torch.as_tensor(obs_t, device=device)
-            obs = torch.cat((obs, obs_t.unsqueeze(0)), dim=0)
-
-            dist = np.linalg.norm(
-                time_step.observation - goal_obs[episode].cpu().numpy()
-            )
-            dist2goal = min(dist2goal, dist)
-            video_recorder.record(env)
-            step += 1
-
-        video_recorder.save(f"{global_step}.mp4")
-        video_recorder.render_goal(env, goal_physics[episode])
-        episode += 1
-        total_dist2goal.append(dist2goal)
-
-    with logger.log_and_dump_ctx(global_step, ty="eval") as log:
-        log("distance2goal", np.mean(total_dist2goal))
-        log("std", np.std(total_dist2goal))
-        log("episode_length", step / episode)
-        log("step", global_step)
-
-
-def eval_bc(
-    global_step,
-    agent,
-    env,
-    logger,
-    goal_iter,
-    device,
-    num_eval_episodes,
-    video_recorder,
-):
-    step, episode, total_dist2goal = 0, 0, []
-    eval_until_episode = utils.Until(num_eval_episodes)
-    batch = next(goal_iter)
-    start_obs, start_physics, goal_obs, goal_physics, timestep = utils.to_torch(
-        batch, device
-    )
-
-    while eval_until_episode(episode):
-        time_step = env.reset()
-        with env.physics.reset_context():
-            env.physics.set_state(start_physics[episode].cpu())
-        dist2goal = 1e6
-        video_recorder.init(env, enabled=True)
-        time_budget = timestep[episode] + 5
-        obs = start_obs[episode]
-        for _ in range(time_budget):
-            with torch.no_grad(), utils.eval_mode(agent):
-                action = agent.act(obs, goal_obs[episode], global_step)
-            time_step = env.step(action)
-            obs = np.asarray(time_step.observation)
-            obs = torch.as_tensor(obs, device=device)
-            dist = np.linalg.norm(
-                time_step.observation - goal_obs[episode].cpu().numpy()
-            )
-            dist2goal = min(dist2goal, dist)
-            video_recorder.record(env)
-            step += 1
-
-        video_recorder.save(f"{global_step}.mp4")
-        video_recorder.render_goal(env, goal_physics[episode])
-        episode += 1
-        total_dist2goal.append(dist2goal)
-
-    with logger.log_and_dump_ctx(global_step, ty="eval") as log:
-        log("distance2goal", np.mean(total_dist2goal))
-        log("std", np.std(total_dist2goal))
-        log("episode_length", step / episode)
-        log("step", global_step)
-
-
 def eval_mdp(
     global_step,
     agent,
@@ -154,7 +52,6 @@ def eval_mdp(
     goal_iter,
     device,
     num_eval_episodes,
-    video_recorder,
     replan=False,
 ):
     step, episode, total_dist2goal = 0, 0, []
@@ -169,7 +66,7 @@ def eval_mdp(
         with env.physics.reset_context():
             env.physics.set_state(start_physics[episode].cpu())
         dist2goal = 1e6
-        video_recorder.init(env, enabled=True)
+        # video_recorder.init(env, enabled=True)
         if replan is False:
             with torch.no_grad(), utils.eval_mode(agent):
                 actions = agent.act(
@@ -180,15 +77,15 @@ def eval_mdp(
 
             for a in actions:
                 time_step = env.step(a)
-                video_recorder.record(env)
+                # video_recorder.record(env)
                 step += 1
                 dist = np.linalg.norm(
                     time_step.observation - goal_obs[episode].cpu().numpy()
                 )
                 dist2goal = min(dist2goal, dist)
 
-            video_recorder.save(f"{global_step}.mp4")
-            video_recorder.render_goal(env, goal_physics[episode])
+            # video_recorder.save(f"{global_step}.mp4")
+            # video_recorder.render_goal(env, goal_physics[episode])
             episode += 1
             total_dist2goal.append(dist2goal)
         else:
@@ -207,11 +104,11 @@ def eval_mdp(
                     time_step.observation - goal_obs[episode].cpu().numpy()
                 )
                 dist2goal = min(dist2goal, dist)
-                video_recorder.record(env)
+                # video_recorder.record(env)
                 step += 1
 
-            video_recorder.save(f"{global_step}.mp4")
-            video_recorder.render_goal(env, goal_physics[episode])
+            # video_recorder.save(f"{global_step}.mp4")
+            # video_recorder.render_goal(env, goal_physics[episode])
             episode += 1
             total_dist2goal.append(dist2goal)
 
@@ -313,7 +210,6 @@ def main(cfg):
                 goal_iter,
                 device,
                 cfg.num_eval_episodes,
-                video_recorder,
                 replan=cfg.replan,
             )
         elif cfg.agent.name == "bc_goal":

@@ -13,24 +13,24 @@ eval_every_steps: 10000
 num_eval_episodes: 10
 # snapshot
 snapshots: [0, 100000, 200000, 300000, 350000, 400000, 450000, 500000, 550000, 600000]
-snapshot_dir: snapshots # If not absolute,, this goes in cwd
+snapshot_dir: snapshots # If not absolute, this goes in cwd
 # resume
 resume: false
 resume_dir: none
 resume_step: 0
 
 # Dummy data
-# replay_buffer_dir: /home/Bibarel/workspace/maskdp-taskgeneral/maskdp_data/maskdp_train
+# replay_buffer_dir: /home/bibarel/workspace/maskdp-taskgeneral/maskdp_data/maskdp_train
 # MaskDP data
-replay_buffer_dir: /home/Bibarel/workspace/maskdp_data/maskdp_train
+replay_buffer_dir: /home/bibarel/workspace/maskdp_data/maskdp_train
 # ExORL data
-# replay_buffer_dir: /home/Bibarel/workspace/exorl/datasets
+# replay_buffer_dir: /home/bibarel/workspace/exorl/datasets
 replay_buffer_size: 100000000
 replay_buffer_num_workers: 16
 batch_size: ${agent.batch_size}
 # misc
 seed: 1
-device: cpu
+device: cuda
 save_video: true
 use_tb: false
 use_wandb: true
@@ -41,4 +41,4 @@ exp_name: output
 # This is the working directory for the script
 hydra:
   run:
-    dir: "/home/Bibarel/workspace/maskdp_models/${exp_name}/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}"
+    dir: "/home/bibarel/workspace/maskdp_models/${exp_name}/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}"
