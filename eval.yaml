@@ -5,7 +5,7 @@ defaults:
 # task settings
 task: walker_walk
 discount: 0.99
-# train settings
+# train settings (Not relevant for eval)
 num_grad_steps: 500000
 log_every_steps: 1000
 # eval

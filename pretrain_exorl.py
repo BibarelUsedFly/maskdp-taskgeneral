@@ -20,6 +20,7 @@ import utils
 from logger import Logger
 from replay_buffer import make_replay_loader
 # from video import VideoRecorder
+import wandb
 import omegaconf
 from pprint import pprint
 
@@ -43,7 +44,7 @@ def get_data_seed(seed, num_data_seeds):
     return (seed - 1) % num_data_seeds + 1
 
 # This links it to pretrain.yaml
-@hydra.main(config_path=".", config_name="pretrain")
+@hydra.main(config_path=".", config_name="pretrain_exorl")
 def main(cfg):
     work_dir = Path.cwd()
     # Print the actual directory determined by hydra config
@@ -55,7 +56,8 @@ def main(cfg):
     print(f"Using device: {device}")
 
     # Create DeepMindControl environment for specified task
-    env = dmc.make(cfg.task, seed=cfg.seed)
+    task = cfg.domain + "_run" # Just a default task for dmc.make to work
+    env = dmc.make(task, seed=cfg.seed)
 
     # Create agent. Utils will instantiate a class
     # Since cfg.agent is 'mdp'. The class will be specified by the mdp.yaml
@@ -67,19 +69,31 @@ def main(cfg):
     )
 
     # Create a snapshot directory for the task
-    domain = get_domain(cfg.task)
-    snapshot_dir = work_dir / Path(cfg.snapshot_dir) / domain / str(cfg.seed)
+    snapshot_dir = work_dir / Path(cfg.snapshot_dir) / cfg.domain / str(cfg.seed)
     snapshot_dir.mkdir(exist_ok=True, parents=True)
 
     # Create logger
     cfg.agent.obs_shape = env.observation_spec().shape
     cfg.agent.action_shape = env.action_spec().shape
-    exp_name = "_".join([cfg.agent.name, domain, str(cfg.seed)])
+    exp_name = "_".join([cfg.agent.name, cfg.domain, str(cfg.seed)])
+    # Create wandb_config from Hydra's omegaconf
+    wandb_config = omegaconf.OmegaConf.to_container(
+        cfg, resolve=True, throw_on_missing=True
+    )
+    wandb.init(
+        project=cfg.project,
+        # This has to be your WandB user-institution
+        entity="bibarelusedfly-cenia", 
+        name=exp_name,
+        config=wandb_config,
+        settings=wandb.Settings(_disable_stats=True,),
+        mode="online" if cfg.use_wandb else "offline",
+        notes=cfg.notes,
+    )
+    logger = Logger(work_dir, use_tb=cfg.use_tb, use_wandb=cfg.use_wandb)
 
-    # This script is just for testing, do not use WandB
-    logger = Logger(work_dir, use_tb=cfg.use_tb, use_wandb=False)
-
-    replay_train_dir = Path(cfg.replay_buffer_dir) / domain
+    replay_train_dir = \
+        Path(cfg.replay_buffer_dir) / cfg.domain / cfg.algorithm / "buffer"
     print("Using dataset:", replay_train_dir)
     train_loader = make_replay_loader(
         env,
@@ -88,20 +102,12 @@ def main(cfg):
         cfg.batch_size,
         cfg.replay_buffer_num_workers,
         cfg.discount,
-        domain,
+        cfg.domain,
         cfg.agent.transformer_cfg.traj_length,
         relabel=False,
     )
 
-    # See replay_buffer.py - OfflineReplayBuffer._sample for details
-    # This is a dataloader, calling 'next' on it returns a list of 6 tensors
-    # (batch_size, traj_length, observation_dim)
-    # (batch_size, traj_length, action_dim)
-    # (batch_size, traj_length, reward_dim)      # Typically 1
-    # (batch_size, traj_length, discount_dim)    # Typically 1
-    # (batch_size, traj_length, observation_dim) # Next state
-    # (batch_size,)                              # This is just 0s
-    train_iter = iter(train_loader) 
+    train_iter = iter(train_loader)
 
     timer = utils.Timer()
 
@@ -110,16 +116,6 @@ def main(cfg):
     train_until_step = utils.Until(cfg.num_grad_steps)
     eval_every_step = utils.Every(cfg.eval_every_steps)
     log_every_step = utils.Every(cfg.log_every_steps)
-
-    # print("----- Pretest -----")
-    # testy = next(train_iter)
-    # print(testy[0].shape)
-    # print(testy[1].shape)
-    # print(testy[2].shape)
-    # print(testy[3].shape)
-    # print(testy[4].shape)
-    # print(testy[5].shape)
-    # print("-------------------")
 
     # True until global_step gets to cfg.num_grad_steps
     while train_until_step(global_step):
@@ -136,6 +132,8 @@ def main(cfg):
                 log("fps", cfg.log_every_steps / elapsed_time)
                 log("total_time", total_time)
                 log("step", global_step)
+            # Upon exiting the context manager "LogAndDumpCtx", the logged
+            # data is actually dumped to WandB
 
         if global_step in cfg.snapshots:
             snapshot = snapshot_dir / f"snapshot_{global_step}.pt"

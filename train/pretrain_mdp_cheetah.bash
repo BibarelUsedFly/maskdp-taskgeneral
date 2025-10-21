@@ -1,4 +1,29 @@
-#!/usr/bin/env bash
+#!/bin/bash
+#SBATCH --job-name=maskdp_pretrain_quadruped_run       # Job name
+#SBATCH --mail-type=BEGIN,END,FAIL       # Mail (NONE, BEGIN, END, FAIL, ALL)
+#SBATCH --mail-user=fivillagran@uc.cl    # El mail del usuario
+#SBATCH --output=logs/%x-%j.out          # Log file (%x=job-name, %j=job-ID)
+#SBATCH --error=logs/%x-%j.err           # Error log                    
+#SBATCH --gres=gpu:1                     # Number of GPUs
+#SBATCH --cpus-per-task=16               # CPU cores
+#SBATCH --nodelist=peteroa
+#SBATCH --partition=debug
+#SBATCH --account=defaultacc             
+#SBATCH --qos=normal 
+#SBATCH --time=24:00:00
+#SBATCH --mem-per-cpu=8G
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+
+#SBATCH --chdir=/home/bibarel/workspace
+
+# --- Environment setup ---
+source "./miniconda3/etc/profile.d/conda.sh"
+conda activate maskdp
+cd "./maskdp-taskgeneral"
+pwd
+echo "Pretraining MaskDP on cheetah_run task..."
+
 python pretrain.py \
     agent=mdp \
     agent.batch_size=384 \
@@ -14,4 +39,5 @@ python pretrain.py \
     snapshot_dir=snapshot \
     resume=false\
     project=final_mt_mdp \
-    use_wandb=True
+    use_wandb=True \
+    seed=2

@@ -249,10 +249,9 @@ class MaskedDPAgent:
             obs, action, pred_s, pred_a, mask
         )
 
-        if self.use_tb:
-            metrics["val_mask_loss"] = mask_loss.item()
-            metrics["val_state_loss"] = state_loss.item()
-            metrics["val_action_loss"] = action_loss.item()
+        metrics["val_mask_loss"] = mask_loss.item()
+        metrics["val_state_loss"] = state_loss.item()
+        metrics["val_action_loss"] = action_loss.item()
 
         return metrics
 
@@ -261,7 +260,7 @@ class MaskedDPAgent:
 
         batch = next(replay_iter)
         obs, action, _, _, _, _ = utils.to_torch(batch, self.device)
-
+        
         # update critic
         metrics.update(self.update_mdp(obs, action))
 

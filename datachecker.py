@@ -2,7 +2,7 @@ import numpy as np
 from pathlib import Path
 
 # load one file
-datapath = Path("/home/Bibarel/workspace/maskdp_data/maskdp_train")
+datapath = Path("/home/bibarel/workspace/maskdp_data/maskdp_train")
 taskpath = Path("walker/expert/walker_walk/train")
 episode = Path ("episode_000000_1000.npz")
 

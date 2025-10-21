@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=maskdp_pretrain_quadruped_run       # Job name
+#SBATCH --job-name=exorl_pretrain_quadruped_ICM       # Job name
 #SBATCH --mail-type=BEGIN,END,FAIL       # Mail (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=fivillagran@uc.cl    # El mail del usuario
 #SBATCH --output=logs/%x-%j.out          # Log file (%x=job-name, %j=job-ID)
@@ -22,9 +22,9 @@ source "./miniconda3/etc/profile.d/conda.sh"
 conda activate maskdp
 cd "./maskdp-taskgeneral"
 pwd
-echo "Pretraining MaskDP on walker_run task..."
+echo "Pretraining MaskDP on quadruped domain, ICM algorithm..."
 
-python pretrain.py \
+python pretrain_exorl.py \
     agent=mdp \
     agent.batch_size=384 \
     agent.transformer_cfg.traj_length=64 \
@@ -35,9 +35,10 @@ python pretrain.py \
     agent.transformer_cfg.n_dec_layer=2 \
     agent.transformer_cfg.norm='l2' \
     num_grad_steps=400010 \
-    task=walker_run \
+    domain=quadruped \
+    algorithm=icm \
     snapshot_dir=snapshot \
     resume=false \
-    project=final_mt_mdp \
+    project=exorl_mdp \
     use_wandb=True \
-    seed=2
+    seed=1

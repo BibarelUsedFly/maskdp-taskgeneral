@@ -40,6 +40,7 @@ def get_dir(cfg):
     '''Get path to model weights'''
     snapshot_base_dir = Path(cfg.snapshot_base_dir)
     snapshot_dir = snapshot_base_dir / get_domain(cfg.task)
+    ## Change this if model used seed != 1
     snapshot = snapshot_dir / str(1) / f"snapshot_{cfg.snapshot_ts}.pt"
     return snapshot
 
@@ -112,9 +113,11 @@ def eval_mdp(
             episode += 1
             total_dist2goal.append(dist2goal)
 
+    # Just one log at the end
     with logger.log_and_dump_ctx(global_step, ty="eval") as log:
         log("distance2goal", np.mean(total_dist2goal))
         log("std", np.std(total_dist2goal))
+        log("stderr", np.std(total_dist2goal)/np.sqrt(len(total_dist2goal)))
         log("episode_length", step / episode)
         log("step", global_step)
 
@@ -199,6 +202,7 @@ def main(cfg):
     global_step = 0
     eval_every_step = utils.Every(cfg.eval_every_steps)
 
+    # This is aways true, and global_step is always 0
     if eval_every_step(global_step):
         logger.log("eval_total_time", timer.total_time(), global_step)
         if cfg.agent.name == "mdp_goal":

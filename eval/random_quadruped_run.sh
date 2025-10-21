@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=maskdp_pretrain_quadruped_run       # Job name
+#SBATCH --job-name=random_quadruped_run       # Job name
 #SBATCH --mail-type=BEGIN,END,FAIL       # Mail (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=fivillagran@uc.cl    # El mail del usuario
 #SBATCH --output=logs/%x-%j.out          # Log file (%x=job-name, %j=job-ID)
@@ -22,22 +22,18 @@ source "./miniconda3/etc/profile.d/conda.sh"
 conda activate maskdp
 cd "./maskdp-taskgeneral"
 pwd
-echo "Pretraining MaskDP on walker_run task..."
+echo "Benchmarking quadruped_run with random agent..."
 
-python pretrain.py \
-    agent=mdp \
+# replan=true is open loop
+python eval_goal_novideo.py \
+    agent=mdp_goal \
     agent.batch_size=384 \
-    agent.transformer_cfg.traj_length=64 \
-    agent.transformer_cfg.loss="total" \
-    agent.transformer_cfg.n_embd=256 \
-    agent.transformer_cfg.n_head=4 \
-    agent.transformer_cfg.n_enc_layer=3 \
-    agent.transformer_cfg.n_dec_layer=2 \
-    agent.transformer_cfg.norm='l2' \
-    num_grad_steps=400010 \
-    task=walker_run \
-    snapshot_dir=snapshot \
-    resume=false \
-    project=final_mt_mdp \
-    use_wandb=True \
-    seed=2
+    seed=3 \
+    num_eval_episodes=300 \
+    task=quadruped_run \
+    snapshot_base_dir=/home/bibarel/workspace/maskdp_models/output/2025.10.09/191014_mdp/snapshot \
+    goal_buffer_dir=/home/bibarel/workspace/maskdp_data/maskdp_eval/expert \
+    snapshot_ts=0 \
+    project=random-single-goal \
+    replan=true \
+    use_wandb=True

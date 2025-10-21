@@ -24,7 +24,7 @@ cd "./maskdp-taskgeneral"
 pwd
 echo "Pretraining MaskDP on quadruped_run task..."
 
-python pretest.py \
+python pretrain.py \
     agent=mdp \
     agent.batch_size=384 \
     agent.transformer_cfg.traj_length=64 \
@@ -39,4 +39,5 @@ python pretest.py \
     snapshot_dir=snapshot \
     resume=false\
     project=final_mt_mdp \
-    use_wandb=True
+    use_wandb=True \
+    seed=2

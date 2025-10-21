@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=maskdp_eval_walker_walk       # Job name
+#SBATCH --job-name=random_cheetah_run       # Job name
 #SBATCH --mail-type=BEGIN,END,FAIL       # Mail (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=fivillagran@uc.cl    # El mail del usuario
 #SBATCH --output=logs/%x-%j.out          # Log file (%x=job-name, %j=job-ID)
@@ -22,17 +22,18 @@ source "./miniconda3/etc/profile.d/conda.sh"
 conda activate maskdp
 cd "./maskdp-taskgeneral"
 pwd
-echo "Evaluating walker_walk on goal_reaching..."
+echo "Benchmarking cheetah_run with random agent..."
 
+# replan=true is open loop
 python eval_goal_novideo.py \
     agent=mdp_goal \
     agent.batch_size=384 \
     seed=3 \
     num_eval_episodes=300 \
-    task=walker_walk \
-    snapshot_base_dir=/home/bibarel/workspace/maskdp_models/output/2025.10.01 \
+    task=cheetah_run \
+    snapshot_base_dir=/home/bibarel/workspace/maskdp_models/output/2025.10.15/001040_mdp/snapshot \
     goal_buffer_dir=/home/bibarel/workspace/maskdp_data/maskdp_eval/expert \
-    snapshot_ts=400000 \
-    project=eval-single-goal \
-    replan=false \
+    snapshot_ts=0 \
+    project=random-single-goal \
+    replan=true \
     use_wandb=True

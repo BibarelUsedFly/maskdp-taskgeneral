@@ -20,6 +20,7 @@ import utils
 from logger import Logger
 from replay_buffer import make_replay_loader
 # from video import VideoRecorder
+import wandb
 import omegaconf
 from pprint import pprint
 
@@ -75,9 +76,21 @@ def main(cfg):
     cfg.agent.obs_shape = env.observation_spec().shape
     cfg.agent.action_shape = env.action_spec().shape
     exp_name = "_".join([cfg.agent.name, domain, str(cfg.seed)])
-
-    # This script is just for testing, do not use WandB
-    logger = Logger(work_dir, use_tb=cfg.use_tb, use_wandb=False)
+    # Create wandb_config from Hydra's omegaconf
+    wandb_config = omegaconf.OmegaConf.to_container(
+        cfg, resolve=True, throw_on_missing=True
+    )
+    wandb.init(
+        project=cfg.project,
+        # This has to be your WandB user-institution
+        entity="bibarelusedfly-cenia", 
+        name=exp_name,
+        config=wandb_config,
+        settings=wandb.Settings(_disable_stats=True,),
+        mode="online" if cfg.use_wandb else "offline",
+        notes=cfg.notes,
+    )
+    logger = Logger(work_dir, use_tb=cfg.use_tb, use_wandb=cfg.use_wandb)
 
     replay_train_dir = Path(cfg.replay_buffer_dir) / domain
     print("Using dataset:", replay_train_dir)
@@ -93,15 +106,7 @@ def main(cfg):
         relabel=False,
     )
 
-    # See replay_buffer.py - OfflineReplayBuffer._sample for details
-    # This is a dataloader, calling 'next' on it returns a list of 6 tensors
-    # (batch_size, traj_length, observation_dim)
-    # (batch_size, traj_length, action_dim)
-    # (batch_size, traj_length, reward_dim)      # Typically 1
-    # (batch_size, traj_length, discount_dim)    # Typically 1
-    # (batch_size, traj_length, observation_dim) # Next state
-    # (batch_size,)                              # This is just 0s
-    train_iter = iter(train_loader) 
+    train_iter = iter(train_loader)
 
     timer = utils.Timer()
 
@@ -110,16 +115,6 @@ def main(cfg):
     train_until_step = utils.Until(cfg.num_grad_steps)
     eval_every_step = utils.Every(cfg.eval_every_steps)
     log_every_step = utils.Every(cfg.log_every_steps)
-
-    # print("----- Pretest -----")
-    # testy = next(train_iter)
-    # print(testy[0].shape)
-    # print(testy[1].shape)
-    # print(testy[2].shape)
-    # print(testy[3].shape)
-    # print(testy[4].shape)
-    # print(testy[5].shape)
-    # print("-------------------")
 
     # True until global_step gets to cfg.num_grad_steps
     while train_until_step(global_step):
@@ -136,6 +131,8 @@ def main(cfg):
                 log("fps", cfg.log_every_steps / elapsed_time)
                 log("total_time", total_time)
                 log("step", global_step)
+            # Upon exiting the context manager "LogAndDumpCtx", the logged
+            # data is actually dumped to WandB
 
         if global_step in cfg.snapshots:
             snapshot = snapshot_dir / f"snapshot_{global_step}.pt"
