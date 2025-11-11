@@ -41,23 +41,24 @@ def get_dir(cfg):
     snapshot_base_dir = Path(cfg.snapshot_base_dir)
     snapshot_dir = snapshot_base_dir / get_domain(cfg.task)
     ## Change this if model used seed != 1
-    snapshot = snapshot_dir / str(1) / f"snapshot_{cfg.snapshot_ts}.pt"
+    snapshot = snapshot_dir / str(1) / cfg.algorithm / \
+               f"snapshot_{cfg.snapshot_ts}.pt"
     return snapshot
 
 
 def eval_mdp(
+    global_step,
     agent,
     env,
     logger,
     goal_iter,
     device,
     num_eval_episodes,
-    replan=False,     # True means closed-loop control
+    replan=False,
 ):
     step, episode, total_dist2goal = 0, 0, []
     eval_until_episode = utils.Until(num_eval_episodes)
     batch = next(goal_iter)
-    # Episode is only used for start and goal it seems
     start_obs, start_physics, goal_obs, goal_physics, timestep = utils.to_torch(
         batch, device
     )
@@ -70,22 +71,23 @@ def eval_mdp(
         # video_recorder.init(env, enabled=True)
         if replan is False:
             with torch.no_grad(), utils.eval_mode(agent):
-                # Agent.act returns an action sequence from start_obs to goal
                 actions = agent.act(
                     start_obs[episode].unsqueeze(0),
                     goal_obs[episode].unsqueeze(0),
                     timestep[episode],
                 )
 
-            # Execute the action sequence and register best dist2goal
             for a in actions:
                 time_step = env.step(a)
+                # video_recorder.record(env)
                 step += 1
                 dist = np.linalg.norm(
                     time_step.observation - goal_obs[episode].cpu().numpy()
                 )
                 dist2goal = min(dist2goal, dist)
 
+            # video_recorder.save(f"{global_step}.mp4")
+            # video_recorder.render_goal(env, goal_physics[episode])
             episode += 1
             total_dist2goal.append(dist2goal)
         else:
@@ -104,21 +106,26 @@ def eval_mdp(
                     time_step.observation - goal_obs[episode].cpu().numpy()
                 )
                 dist2goal = min(dist2goal, dist)
+                # video_recorder.record(env)
                 step += 1
 
+            # video_recorder.save(f"{global_step}.mp4")
+            # video_recorder.render_goal(env, goal_physics[episode])
             episode += 1
             total_dist2goal.append(dist2goal)
 
     # Just one log at the end
-    with logger.log_and_dump_ctx(step=0, ty="eval") as log:
+    with logger.log_and_dump_ctx(global_step, ty="eval") as log:
         log("distance2goal", np.mean(total_dist2goal))
         log("std", np.std(total_dist2goal))
         log("stderr", np.std(total_dist2goal)/np.sqrt(len(total_dist2goal)))
         log("episode_length", step / episode)
+        log("step", global_step)
 
 # This links it to eval.yaml
-@hydra.main(config_path=".", config_name="eval")
+@hydra.main(config_path=".", config_name="eval_exorl")
 def main(cfg):
+
     work_dir = Path.cwd()
     print(f"workspace: {work_dir}")
 
@@ -141,7 +148,11 @@ def main(cfg):
     cfg.agent.obs_shape = env.observation_spec().shape
     cfg.agent.action_shape = env.action_spec().shape
     cfg.agent.transformer_cfg = agent.config
-    exp_name = "_".join([cfg.agent.name, cfg.task, str(cfg.replan), str(cfg.seed)])
+    
+    exp_name = "_".join([cfg.agent.name, cfg.task, str(cfg.replan),
+                    str(cfg.seed), str(cfg.algorithm), str(cfg.snapshot_ts)])
+    if cfg.exp_name != "None":
+        exp_name = cfg.exp_name + "_" + exp_name
     wandb_config = omegaconf.OmegaConf.to_container(
         cfg, resolve=True, throw_on_missing=True
     )
@@ -194,21 +205,47 @@ def main(cfg):
 
     timer = utils.Timer()
 
+    global_step = 0
     eval_every_step = utils.Every(cfg.eval_every_steps)
 
-    logger.log("eval_total_time", timer.total_time(), 0)
-    if cfg.agent.name == "mdp_goal":
-        eval_mdp(
-            agent,
-            env,
-            logger,
-            goal_iter,
-            device,
-            cfg.num_eval_episodes,
-            replan=cfg.replan,
-        )
-    else:
-        raise NotImplementedError
+    # This is aways true, and global_step is always 0
+    if eval_every_step(global_step):
+        logger.log("eval_total_time", timer.total_time(), global_step)
+        if cfg.agent.name == "mdp_goal":
+            eval_mdp(
+                global_step,
+                agent,
+                env,
+                logger,
+                goal_iter,
+                device,
+                cfg.num_eval_episodes,
+                replan=cfg.replan,
+            )
+        elif cfg.agent.name == "bc_goal":
+            eval_bc(
+                global_step,
+                agent,
+                env,
+                logger,
+                goal_iter,
+                device,
+                cfg.num_eval_episodes,
+                video_recorder,
+            )
+        elif cfg.agent.name == "seq_goal":
+            eval_seq_bc(
+                global_step,
+                agent,
+                env,
+                logger,
+                goal_iter,
+                device,
+                cfg.num_eval_episodes,
+                video_recorder,
+            )
+        else:
+            raise NotImplementedError
 
 
 if __name__ == "__main__":

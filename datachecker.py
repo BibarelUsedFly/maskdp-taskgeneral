@@ -9,7 +9,7 @@ episode = Path ("episode_000000_1000.npz")
 data = np.load(datapath / taskpath / episode)
 
 for ep in range(10):
-    episode = Path ("episode_{}_1000.npz".format(str(ep).zfill(6)))
+    episode = Path("episode_{}_1000.npz".format(str(ep).zfill(6)))
     data = np.load(datapath / taskpath / episode)
     print("Episode", ep)
 

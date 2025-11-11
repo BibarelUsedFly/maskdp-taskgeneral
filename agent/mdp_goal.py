@@ -140,8 +140,13 @@ class MDPGoalAgent:
         return actions.cpu().numpy()[0]
 
     def act(self, obs, goal, T):
+        # Obs -> State, Goal -> Target state, T -> Time horizon to reach goal
         obs = torch.as_tensor(obs, device=self.device).unsqueeze(0)
         goal = torch.as_tensor(goal, device=self.device).unsqueeze(0)
+        # Total tokens is 2 * (T + 1) because each state and action is a token
+        # (T + 1 because stuff happens on t=0)
+
+        # If too many tokens for transformer, then interpolate
         if 2 * (T + 1) > self.mdp.pos_embed.shape[1]:
             pos_embed = utils.interpolate_pos_embed(self.mdp.pos_embed, 2 * (T + 1))
             decoder_pos_embed = utils.interpolate_pos_embed(

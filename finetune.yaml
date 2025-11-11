@@ -1,0 +1,48 @@
+defaults:
+  - agent: mdp
+  - override hydra/launcher: submitit_local
+
+name: scratch
+
+# task settings
+task: walker_walk
+data_split: 100
+# task: walker_walk # No tasks specified in ExORL dataset
+discount: 0.99
+# train settings
+num_grad_steps: 400010 # NUMBER  OF TRAINING STEPS
+log_every_steps: 1000
+# eval
+eval_every_steps: 10000
+num_eval_episodes: 10
+# snapshot
+snapshots: [0, 50000, 100000, 150000, 200000, 250000, 300000, 350000, 400000, 450000, 500000, 550000, 600000, 650000, 700000, 750000, 800000]
+snapshot_dir: snapshots # If not absolute, this goes in cwd
+# resume
+resume: false
+resume_dir: none
+resume_step: 0
+
+# Dummy data
+# replay_buffer_dir: /home/bibarel/workspace/maskdp-taskgeneral/maskdp_data/maskdp_train
+# MaskDP data
+replay_buffer_dir: /home/bibarel/workspace/exorl/datasets
+# ExORL data
+# replay_buffer_dir: /home/bibarel/workspace/exorl/datasets
+replay_buffer_size: 100000000
+replay_buffer_num_workers: 16
+batch_size: ${agent.batch_size}
+# misc
+seed: 1
+device: cuda
+save_video: true
+use_tb: false
+use_wandb: true
+project: finetune_mdp
+notes: "finetune"
+exp_name: output
+
+# This is the working directory for the script
+hydra:
+  run:
+    dir: "/home/bibarel/workspace/finetuned_models/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}"

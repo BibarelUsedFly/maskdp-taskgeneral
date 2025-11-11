@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=maskdp_pretrain_quadruped_run       # Job name
+#SBATCH --job-name=finetune_mdp_walker_run       # Job name
 #SBATCH --mail-type=BEGIN,END,FAIL       # Mail (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=fivillagran@uc.cl    # El mail del usuario
 #SBATCH --output=logs/%x-%j.out          # Log file (%x=job-name, %j=job-ID)
@@ -22,9 +22,10 @@ source "./miniconda3/etc/profile.d/conda.sh"
 conda activate maskdp
 cd "./maskdp-taskgeneral"
 pwd
-echo "Pretraining MaskDP on walker_run task..."
+echo "Finetuning on walker_run task..."
 
-python pretrain.py \
+python finetune.py \
+    name=random_075 \
     agent=mdp \
     agent.batch_size=384 \
     agent.transformer_cfg.traj_length=64 \
@@ -36,8 +37,12 @@ python pretrain.py \
     agent.transformer_cfg.norm='l2' \
     num_grad_steps=400010 \
     task=walker_run \
-    snapshot_dir=snapshot \
-    resume=false \
-    project=final_mt_mdp \
+    snapshot_dir=finetunes \
+    replay_buffer_dir=/home/bibarel/workspace/finetune \
+    data_split=75 \
+    resume=true \
+    resume_dir=/home/bibarel/workspace/exorl_models/output/2025.10.23/104130_mdp/snapshot/walker/1/random \
+    resume_step=400000 \
+    project=finetune_mdp \
     use_wandb=True \
     seed=1

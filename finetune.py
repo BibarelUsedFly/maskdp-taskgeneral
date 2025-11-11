@@ -29,7 +29,7 @@ torch.backends.cudnn.benchmark = True
 
 def get_dir(cfg):
     resume_dir = Path(cfg.resume_dir)
-    snapshot = resume_dir / str(cfg.seed) / f"snapshot_{cfg.resume_step}.pt"
+    snapshot = resume_dir / f"snapshot_{cfg.resume_step}.pt"
     print("loading from", snapshot)
     return snapshot
 
@@ -40,11 +40,8 @@ def get_domain(task):
     return task.split("_", 1)[0]
 
 
-def get_data_seed(seed, num_data_seeds):
-    return (seed - 1) % num_data_seeds + 1
-
 # This links it to pretrain.yaml
-@hydra.main(config_path=".", config_name="pretrain_exorl")
+@hydra.main(config_path=".", config_name="finetune")
 def main(cfg):
     work_dir = Path.cwd()
     # Print the actual directory determined by hydra config
@@ -56,8 +53,7 @@ def main(cfg):
     print(f"Using device: {device}")
 
     # Create DeepMindControl environment for specified task
-    task = cfg.domain + "_run" # Just a default task for dmc.make to work
-    env = dmc.make(task, seed=cfg.seed)
+    env = dmc.make(cfg.task, seed=cfg.seed)
 
     # Create agent. Utils will instantiate a class
     # Since cfg.agent is 'mdp'. The class will be specified by the mdp.yaml
@@ -68,16 +64,22 @@ def main(cfg):
         action_shape=env.action_spec().shape,
     )
 
+    if cfg.resume:
+        pretrained = torch.load(get_dir(cfg), map_location=cfg.device)
+        agent.model.load_state_dict(pretrained["model"], strict=True)
+        print(f"Loaded pretrained weights from: {get_dir(cfg)}")
+
     # Create a snapshot directory for the task
+    domain = get_domain(cfg.task)
     snapshot_dir = work_dir / Path(cfg.snapshot_dir) / \
-                   cfg.domain / str(cfg.seed) / cfg.algorithm
+                   domain / str(cfg.seed) / cfg.name
     snapshot_dir.mkdir(exist_ok=True, parents=True)
 
     # Create logger
     cfg.agent.obs_shape = env.observation_spec().shape
     cfg.agent.action_shape = env.action_spec().shape
     exp_name = "_".join([
-        cfg.agent.name, cfg.domain, str(cfg.seed), str(cfg.algorithm)])
+        cfg.agent.name, domain, str(cfg.seed), str(cfg.name)])
     # Create wandb_config from Hydra's omegaconf
     wandb_config = omegaconf.OmegaConf.to_container(
         cfg, resolve=True, throw_on_missing=True
@@ -94,8 +96,9 @@ def main(cfg):
     )
     logger = Logger(work_dir, use_tb=cfg.use_tb, use_wandb=cfg.use_wandb)
 
-    replay_train_dir = \
-        Path(cfg.replay_buffer_dir) / cfg.domain / cfg.algorithm / "buffer"
+    # We're training on eval data
+    finetune_data_path = "_".join([cfg.replay_buffer_dir, cfg.task])
+    replay_train_dir = Path(finetune_data_path) / f"{cfg.data_split}percent"
     print("Using dataset:", replay_train_dir)
     train_loader = make_replay_loader(
         env,
@@ -104,7 +107,7 @@ def main(cfg):
         cfg.batch_size,
         cfg.replay_buffer_num_workers,
         cfg.discount,
-        cfg.domain,
+        domain,
         cfg.agent.transformer_cfg.traj_length,
         relabel=False,
     )
@@ -115,9 +118,11 @@ def main(cfg):
 
     global_step = cfg.resume_step
 
-    train_until_step = utils.Until(cfg.num_grad_steps)
+    train_until_step = utils.Until(cfg.num_grad_steps + cfg.resume_step)
     eval_every_step = utils.Every(cfg.eval_every_steps)
     log_every_step = utils.Every(cfg.log_every_steps)
+
+    print("Num workers is", cfg.replay_buffer_num_workers)
 
     # True until global_step gets to cfg.num_grad_steps
     while train_until_step(global_step):
