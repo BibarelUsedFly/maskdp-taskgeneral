@@ -113,7 +113,7 @@ def eval_mdp(
         log("stderr", np.std(total_dist2goal)/np.sqrt(len(total_dist2goal)))
         log("episode_length", step / episode)
 
-# This links it to eval.yaml
+# This links it to eval_exorl.yaml
 @hydra.main(config_path=".", config_name="eval_exorl")
 def main(cfg):
 
@@ -147,6 +147,8 @@ def main(cfg):
     wandb_config = omegaconf.OmegaConf.to_container(
         cfg, resolve=True, throw_on_missing=True
     )
+    print("Using WandB:", cfg.use_wandb, type(cfg.use_wandb))
+    print("Replan:", cfg.replan, type(cfg.replan))
     wandb.init(
         project=cfg.project,
         entity="bibarelusedfly-cenia",
@@ -195,7 +197,7 @@ def main(cfg):
 
     eval_every_step = utils.Every(cfg.eval_every_steps)
 
-    logger.log("eval_total_time", timer.total_time(), global_step)
+    logger.log("eval_total_time", timer.total_time(), step=0)
     if cfg.agent.name == "mdp_goal":
         eval_mdp(
             agent,

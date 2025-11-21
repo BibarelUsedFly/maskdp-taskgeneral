@@ -35,9 +35,9 @@ algorithms=("scratch" "icm" "proto" "scratch_010" "icm_010" "proto_010"
             "smm_025" "scratch_025" "rnd_025" "random_025" "proto_025"
             "icm_apt_025" "icm_025" "disagreement_025" "diayn_025"
             "smm_075" "scratch_075" "rnd_075" "icm_075" "icm_apt_075"
-            "proto_075" "diayn_075" "disagreement_075"
+            "proto_075" "diayn_075" "disagreement_075" "random_075"
             "diayn_001" "disagreement_001" "icm_apt_001" "icm_001"
-            "proto_050" "random_050" "rnd_050" "scratch_050" "smm_050")
+            "proto_001" "random_001" "rnd_001" "scratch_001" "smm_001")
 base_dirs=(
     "2025.10.30/070122_mdp" # Scratch_100
     "2025.10.30/071534_mdp" # ICM_100
@@ -90,7 +90,7 @@ base_dirs=(
     "2025.11.05/002007_mdp" # Proto_075
     "2025.11.05/025643_mdp" # Diayn_075
     "2025.11.05/025710_mdp" # Disagreement_075
-    # "2025.11.11/172_mdp" # Random_075
+    "2025.11.11/191529_mdp" # Random_075
 
     "2025.11.10/071116_mdp" # Diayn_001
     "2025.11.10/071428_mdp" # Disagreement_001
@@ -109,6 +109,14 @@ for i in "${!algorithms[@]}"; do
     alg=${algorithms[$i]}
     dir=${base_dirs[$i]}
 
+    # Default snapshot_ts
+    snapshot_ts=750000
+
+    # Example override — if one algorithm has a different checkpoint
+    if [[ "$alg" == *scratch* ]]; then
+        snapshot_ts=350000
+    fi
+
     echo "Running evaluation for $alg ..."
     python exorl_eval_finetune_singlegoal.py \
         agent=mdp_goal \
@@ -119,8 +127,8 @@ for i in "${!algorithms[@]}"; do
         algorithm=$alg \
         snapshot_base_dir=/home/bibarel/workspace/finetuned_models/${dir}/finetunes \
         goal_buffer_dir=/home/bibarel/workspace/maskdp_data/maskdp_eval/expert \
-        snapshot_ts=400000 \
-        project=exorl-eval-single-goal-finetuned \
+        snapshot_ts=$snapshot_ts \
+        project=exorl-eval-single-goal-finetuned-350 \
         replan=false \
         use_wandb=True
 
