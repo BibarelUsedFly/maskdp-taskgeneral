@@ -140,6 +140,7 @@ class MDPGoalAgent:
         return actions.cpu().numpy()[0]
 
     def act(self, obs, goal, T):
+        
         # Obs -> State, Goal -> Target state, T -> Time horizon to reach goal
         obs = torch.as_tensor(obs, device=self.device).unsqueeze(0)
         goal = torch.as_tensor(goal, device=self.device).unsqueeze(0)
@@ -160,6 +161,60 @@ class MDPGoalAgent:
             decoder_pos_embed = self.mdp.decoder_pos_embed
             attn_mask = self.mdp.attn_mask
 
+        s_emb = self.mdp.state_embed(obs) + pos_embed[:, 0]
+        g_emb = self.mdp.state_embed(goal) + pos_embed[:, 2 * T]
+        # encoder
+        x = torch.cat([s_emb, g_emb], dim=1)
+        for blk in self.mdp.encoder_blocks:
+            x = blk(x, attn_mask)
+        x = self.mdp.encoder_norm(x)
+
+        if T > 1:
+            mask_states = self.mdp.mask_token.repeat(obs.shape[0], T - 1, 1)
+            obs = torch.cat([x[:, 0].unsqueeze(1), mask_states], dim=1)
+            obs = torch.cat([obs, x[:, -1].unsqueeze(1)], dim=1)
+        else:
+            obs = x
+
+        mask_actions = self.mdp.mask_token.repeat(obs.shape[0], T + 1, 1)
+        obs = self.mdp.decoder_state_embed(obs)
+        mask_actions = self.mdp.decoder_action_embed(mask_actions)
+
+        x = (
+            torch.stack([obs, mask_actions], dim=1)
+            .permute(0, 2, 1, 3)
+            .reshape(obs.shape[0], 2 * (T + 1), self.config.n_embd)
+        )
+        x += decoder_pos_embed[:, : 2 * (T + 1)]
+        # apply Transformer blocks
+        for blk in self.mdp.decoder_blocks:
+            x = blk(x, attn_mask)
+        actions = self.mdp.action_head(x[:, 1::2])[:, :-1]
+        return actions.cpu().numpy()[0]
+
+    def act_history(self, obs, goal, T):
+        '''Like act, but gets a trajectory instead of just an observation'''
+        # Obs -> State, Goal -> Target state, T -> Time horizon to reach goal
+        obs = torch.as_tensor(obs, device=self.device).unsqueeze(0)
+        goal = torch.as_tensor(goal, device=self.device).unsqueeze(0)
+        # Total tokens is 2 * (T + 1) because each state and action is a token
+        # (T + 1 because stuff happens on t=0)
+
+        # If too many tokens for transformer, then interpolate
+        if 2 * (T + 1) > self.mdp.pos_embed.shape[1]:
+            pos_embed = utils.interpolate_pos_embed(self.mdp.pos_embed, 2 * (T + 1))
+            decoder_pos_embed = utils.interpolate_pos_embed(
+                self.mdp.decoder_pos_embed, 2 * (T + 1)
+            )
+            attn_mask = torch.ones(2 * (T + 1), 2 * (T + 1))[None, None, ...].to(
+                self.device
+            )
+        else:
+            pos_embed = self.mdp.pos_embed
+            decoder_pos_embed = self.mdp.decoder_pos_embed
+            attn_mask = self.mdp.attn_mask
+
+        # Acá tengo que cambiar la cosa para meterle la trayectoria
         s_emb = self.mdp.state_embed(obs) + pos_embed[:, 0]
         g_emb = self.mdp.state_embed(goal) + pos_embed[:, 2 * T]
         # encoder

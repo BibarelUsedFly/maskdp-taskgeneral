@@ -109,16 +109,8 @@ for i in "${!algorithms[@]}"; do
     alg=${algorithms[$i]}
     dir=${base_dirs[$i]}
 
-    # Snapshot steps for pretrained models
-    snapshot_ts=650000
-
-    # Snapshot step for the scratch model (the one without pretraining)
-    if [[ "$alg" == *scratch* ]]; then
-        snapshot_ts=250000
-    fi
-
     echo "Running evaluation for $alg ..."
-    python exorl_eval_finetune_singlegoal.py \
+    python exorl_multieval_finetune_singlegoal.py \
         agent=mdp_goal \
         agent.batch_size=384 \
         seed=3 \
@@ -127,9 +119,8 @@ for i in "${!algorithms[@]}"; do
         algorithm=$alg \
         snapshot_base_dir=/home/bibarel/workspace/finetuned_models/${dir}/finetunes \
         goal_buffer_dir=/home/bibarel/workspace/maskdp_data/maskdp_eval/expert \
-        snapshot_ts=$snapshot_ts \
-        project=exorl-eval-single-goal-finetuned-250 \
-        replan=true \
+        project=exorl-eval-single-goal-finetuned-all \
+        replan=false \
         use_wandb=True
 
     echo "Finished evaluation for $alg"

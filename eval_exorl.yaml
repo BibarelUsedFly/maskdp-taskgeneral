@@ -13,6 +13,7 @@ discount: 0.99
 num_grad_steps: 500000
 log_every_steps: 1000
 # eval
+csv_path: /home/bibarel/workspace/eval_results
 eval_every_steps: 10000
 num_eval_episodes: 100
 # snapshot

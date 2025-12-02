@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=PPO_Finetune          # Job name
-#SBATCH --mail-type=BEGIN,END,FAIL       # Mail (NONE, BEGIN, END, FAIL, ALL)
+#SBATCH --mail-type=NONE                 # Mail (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=fivillagran@uc.cl    # El mail del usuario
 #SBATCH --output=logs/%x-%j.out          # Log file (%x=job-name, %j=job-ID)
 #SBATCH --error=logs/%x-%j.err           # Error log                    
@@ -23,5 +23,8 @@ echo "Testing PPO finetuning."
 export PYTHONWARNINGS="ignore"
 export HYDRA_FULL_ERROR=1 
 python finetune_ppo.py \
+    task=walker_run \
+    algorithm=icm \
+    resume_dir=/home/bibarel/workspace/exorl_models/output/2025.10.23/033220_mdp/snapshot/walker/1/icm \
     seed=1
     

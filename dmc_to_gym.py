@@ -4,14 +4,14 @@ from dm_env import StepType, specs
 
 class DMCGymWrapper(gym.Env):
     """
-    Wraps a dm_env.Environment (your dmc.make(...) env) into a Gym Env
-    so that stable-baselines3 can use it.
+    Wraps a dm_env.Environment into a Gym Env
     Assumes that reset/step return an ExtendedTimeStep with:
         .observation (np.ndarray),
         .reward (float),
         .discount (float),
         .step_type (StepType),
         .physics (np.ndarray)
+    (This is because the dmc module wraps envs in an ExtendedTimestepWrapper)
     """
 
     metadata = {"render.modes": []}
@@ -32,9 +32,6 @@ class DMCGymWrapper(gym.Env):
             low = -np.inf * np.ones(obs_spec.shape, dtype=np.float32)
             high = np.inf * np.ones(obs_spec.shape, dtype=np.float32)
 
-        # print("Low", low)
-        # print("High", high)
-        # raise ZeroDivisionError
         self.observation_space = gym.spaces.Box(
             low=low.astype(np.float32),
             high=high.astype(np.float32),
@@ -43,20 +40,22 @@ class DMCGymWrapper(gym.Env):
 
         # actions are BoundedArray
         assert isinstance(act_spec, specs.BoundedArray), act_spec
+        act_low = np.full(act_spec.shape, act_spec.minimum, dtype=np.float32)
+        act_high = np.full(act_spec.shape, act_spec.maximum, dtype=np.float32)
         self.action_space = gym.spaces.Box(
-            low=act_spec.minimum.astype(np.float32),
-            high=act_spec.maximum.astype(np.float32),
+            low=act_low,
+            high=act_high,
             shape=act_spec.shape,
             dtype=np.float32,
         )
 
     def reset(self):
-        ts = self._env.reset()          # ExtendedTimeStep
+        ts = self._env.reset() # TimeStep
         obs = np.array(ts.observation, copy=False)
         return obs
 
     def step(self, action):
-        # SB3 will give numpy float32 actions in [-1, 1] already
+        # SB3 give numpy float32 actions in [-1, 1]
         ts = self._env.step(action)
         obs = np.array(ts.observation, copy=False)
         reward = float(ts.reward)

@@ -33,7 +33,6 @@ def get_dir(cfg):
     print("loading from", snapshot)
     return snapshot
 
-
 def get_domain(task):
     if task.startswith("point_mass_maze"):
         return "point_mass_maze"
@@ -71,8 +70,7 @@ def main(cfg):
 
     # Create a snapshot directory for the task
     domain = get_domain(cfg.task)
-    snapshot_dir = work_dir / Path(cfg.snapshot_dir) / \
-                   domain / str(cfg.seed) / cfg.name
+    snapshot_dir = work_dir / domain / str(cfg.seed) / cfg.name
     snapshot_dir.mkdir(exist_ok=True, parents=True)
 
     # Create logger

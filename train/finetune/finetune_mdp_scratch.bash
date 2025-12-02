@@ -25,7 +25,7 @@ pwd
 echo "Finetuning on walker_run task..."
 
 python finetune.py \
-    name=scratch_001 \
+    name=scratch_100 \
     agent=mdp \
     agent.batch_size=384 \
     agent.transformer_cfg.traj_length=64 \
@@ -35,14 +35,13 @@ python finetune.py \
     agent.transformer_cfg.n_enc_layer=3 \
     agent.transformer_cfg.n_dec_layer=2 \
     agent.transformer_cfg.norm='l2' \
-    num_grad_steps=400010 \
+    num_grad_steps=50010 \
     task=walker_run \
-    snapshot_dir=finetunes \
     replay_buffer_dir=/home/bibarel/workspace/finetune \
-    data_split=1 \
+    data_split=100 \
     replay_buffer_num_workers=1 \
     resume=false \
     resume_step=0 \
-    project=finetune_mdp \
+    project=finetune_mdp_small \
     use_wandb=True \
     seed=1
