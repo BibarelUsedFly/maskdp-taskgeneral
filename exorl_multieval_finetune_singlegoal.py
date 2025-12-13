@@ -202,10 +202,7 @@ def main(cfg):
         entity="bibarelusedfly-cenia",
         name=exp_name,
         config=wandb_config,
-        settings=wandb.Settings(
-            start_method="thread",
-            _disable_stats=True,
-        ),
+        settings=wandb.Settings(_disable_stats=True,),
         mode="online" if cfg.use_wandb else "offline",
         notes=cfg.notes,
     )

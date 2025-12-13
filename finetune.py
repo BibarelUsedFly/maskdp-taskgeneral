@@ -114,9 +114,9 @@ def main(cfg):
 
     timer = utils.Timer()
 
-    global_step = cfg.resume_step
+    global_step = 0
 
-    train_until_step = utils.Until(cfg.num_grad_steps + cfg.resume_step)
+    train_until_step = utils.Until(cfg.num_grad_steps)
     eval_every_step = utils.Every(cfg.eval_every_steps)
     log_every_step = utils.Every(cfg.log_every_steps)
 

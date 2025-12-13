@@ -24,24 +24,36 @@ cd "./maskdp-taskgeneral"
 pwd
 echo "Finetuning on walker_run task..."
 
-python finetune.py \
-    name=random_100 \
-    agent=mdp \
-    agent.batch_size=384 \
-    agent.transformer_cfg.traj_length=64 \
-    agent.transformer_cfg.loss="total" \
-    agent.transformer_cfg.n_embd=256 \
-    agent.transformer_cfg.n_head=4 \
-    agent.transformer_cfg.n_enc_layer=3 \
-    agent.transformer_cfg.n_dec_layer=2 \
-    agent.transformer_cfg.norm='l2' \
-    num_grad_steps=50010 \
-    task=walker_run \
-    replay_buffer_dir=/home/bibarel/workspace/finetune \
-    data_split=100 \
-    resume=true \
-    resume_dir=/home/bibarel/workspace/exorl_models/output/2025.10.23/104130_mdp/snapshot/walker/1/random \
-    resume_step=400000 \
-    project=finetune_mdp_small \
-    use_wandb=True \
-    seed=1
+for N in 100 75 50 25 10 5 2 1
+do
+    # zero-pad to 3 digits for the name
+    PADDED=$(printf "%03d" $N)
+
+    # Too many workers for a small dataset will give empty arrays
+    # to some workers, so cap workers at 2N
+    workers=$(( 2*N < 16 ? 2*N : 16 ))
+
+    python finetune.py \
+        name=random_${PADDED} \
+        agent=mdp \
+        agent.batch_size=384 \
+        agent.transformer_cfg.traj_length=64 \
+        agent.transformer_cfg.loss="total" \
+        agent.transformer_cfg.n_embd=256 \
+        agent.transformer_cfg.n_head=4 \
+        agent.transformer_cfg.n_enc_layer=3 \
+        agent.transformer_cfg.n_dec_layer=2 \
+        agent.transformer_cfg.norm='l2' \
+        agent.lr=1e-5 \
+        num_grad_steps=50010 \
+        task=walker_run \
+        replay_buffer_dir=/home/bibarel/workspace/finetune \
+        data_split=${N} \
+        replay_buffer_num_workers=${workers} \
+        resume=true \
+        resume_dir=/home/bibarel/workspace/exorl_models/output/2025.10.23/104130_mdp/snapshot/walker/1/random \
+        resume_step=400000 \
+        project=finetune_mdp_small \
+        use_wandb=True \
+        seed=1
+done

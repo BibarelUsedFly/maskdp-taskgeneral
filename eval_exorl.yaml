@@ -40,4 +40,4 @@ replan: true
 
 hydra:
   run:
-    dir: "/home/bibarel/workspace/maskdp_models/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}"
+    dir: "/home/bibarel/workspace/maskdp_models/"
