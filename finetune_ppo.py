@@ -30,13 +30,16 @@ from stable_baselines3.common.env_checker import check_env
 # Actor expects observation sequence of size (batch, timesteps, dimension)
 from agent.mdp_rl import Actor
 
+# For logging
+import wandb
+import omegaconf
+
 torch.backends.cudnn.benchmark = True
 
 class MaskDPActorPPOPolicy(ActorCriticPolicy):
     """
-    PPO policy that:
-      - uses default feature extractor and value network from SB3,
-      - but replaces the actor head with a pre-trained MaskDP Actor.
+    PPO policy that uses default feature extractor and value network from SB3,
+    but replaces the actor with a pre-trained MaskDP Actor.
     """
 
     def __init__(self, *args,
@@ -67,6 +70,56 @@ class MaskDPActorPPOPolicy(ActorCriticPolicy):
 
         # return SB3's Gaussian distribution
         return self.action_dist.proba_distribution(mean_actions, self.log_std)
+
+class SaveAndLogCallback(BaseCallback):
+    def __init__(self,
+                snapshot_dir: Path,
+                save_every_steps: int,
+                use_wandb: bool = False,
+                verbose: int = 0):
+                
+        super().__init__(verbose)
+        self.snapshot_dir = snapshot_dir
+        self.save_every_steps = save_every_steps
+        self.use_wandb = use_wandb
+
+    def _on_step(self) -> bool:
+        info = self.locals.get("infos")[0]
+        # This is wen the step finished an episode
+        if "episode" in info:
+            print("INFO")
+            print(info)
+            raise
+            ep = info["episode"]
+            ep_reward = ep["r"]
+            ep_len = ep["l"]
+
+            if self.verbose > 0:
+                print(f"[PPO] ep_reward={ep_reward:.2f}, len={ep_len}")
+
+            if self.use_wandb:
+                wandb.log(
+                    {"train/episode_return": ep_reward,
+                     "train/episode_length": ep_len,
+                     "train/num_timesteps": self.num_timesteps},
+                    step=self.num_timesteps,
+                )
+        else:
+            # print("No episode in info")
+            pass
+
+        # Save checkpoints
+        if self.num_timesteps % self.save_every_steps == 0:
+            path = self.snapshot_dir / f"ppo_step_{self.num_timesteps}.zip"
+            self.model.save(str(path))
+            if self.verbose > 0:
+                print(f"[PPO] Saved checkpoint to {path}")
+
+        ## Save actor networks weights as MaskDP
+        ## The just run the eval script on the checkpoints
+
+        return True
+
 
 
 def get_dir(cfg):
@@ -139,16 +192,18 @@ def main(cfg):
         env=env,
         device=device,
         policy_kwargs=policy_kwargs,
+        n_steps=2048,
         verbose=1)
 
-    model.learn(total_timesteps=10)#cfg.num_grad_steps)
+    # Callback for logging + checkpoints
+    callback = SaveAndLogCallback(
+        snapshot_dir=snapshot_dir,
+        save_every_steps=cfg.log_every_steps,
+        use_wandb=getattr(cfg, "use_wandb", False),
+        verbose=1)
 
-    # model.learn(
-    #     total_timesteps=cfg.num_grad_steps,
-    #     callback=callback,
-    #     reset_num_timesteps=reset_num_timesteps)
-
-    print("Ended successfully")
+    model.learn(total_timesteps=10, #cfg.num_grad_steps
+                callback=callback) 
 
 if __name__ == "__main__":
     main()

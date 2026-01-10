@@ -328,6 +328,36 @@ def _make_dmc(obs_type, domain, task, frame_stack, action_repeat, seed):
             environment_kwargs=dict(flat_observation=True),
             visualize_reward=visualize_reward,
         )
+        ## Here a base DMC env is created
+        ## env is 'dm_control.rl.control.Environment'
+        ## (inherits from abstract dm_env.Environment)
+        ## env has task, which is 'dm_control.suite.walker.PlanarWalker'
+        ## env also has physics, 'dm_control.suite.walker.Physics'>
+        ## (These inherit from mujoco.Physics)
+
+        # env has an "observation_spec" method which calls tthe same method
+        # in env.task. If it is not implemented (which is not), then falls
+        # back to env.task.get_observation, then if self.flatten_observation,
+        # it (surprise) flattens the observation, then converts it
+        # It is an ordered dict before and after conversion so I'm not quite
+        # sure what the point of the conversion is. Seems to preserve the
+        # dimensions of the observation but not the actual values
+
+        # Walker has a 24-dimensional vector with:
+        #   14 physics.orientations()
+        #    1 physics.torso_height()
+        #    9 physics.velocity()
+
+        # The reward function is also defined in the task, in a get_reward()
+        # function. If move_speed == 0
+        # (move_speed is a parameter defined when creating the task,
+        #  not the actual move_speed), then 75% is for being standing
+        # (keeping torso height above a treshold) and 25% for being upright.
+        # else, there is a linearly increasing reward for keeping horizontal
+        # velocity above move_speed. With 1 at velocity >= move_speed, and 0
+        # at speed 0. The total reward is then
+        # 5/6 * move_reward * stand_reward + 1/6 * stand_reward
+
     else:
         env = cdmc.make(
             domain,
@@ -339,6 +369,7 @@ def _make_dmc(obs_type, domain, task, frame_stack, action_repeat, seed):
 
     env = ActionDTypeWrapper(env, np.float32)
     env = ActionRepeatWrapper(env, action_repeat)
+    # obst_type is "states"
     if obs_type == "pixels":
         # zoom in camera for quadruped
         camera_id = dict(quadruped=2).get(domain, 0)

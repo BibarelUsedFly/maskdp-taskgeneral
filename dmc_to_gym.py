@@ -55,7 +55,7 @@ class DMCGymWrapper(gym.Env):
         return obs
 
     def step(self, action):
-        # SB3 give numpy float32 actions in [-1, 1]
+        # SB3 gives numpy float32 actions in [-1, 1]
         ts = self._env.step(action)
         obs = np.array(ts.observation, copy=False)
         reward = float(ts.reward)
