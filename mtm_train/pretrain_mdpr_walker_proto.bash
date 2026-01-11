@@ -22,7 +22,9 @@ source "./miniconda3/etc/profile.d/conda.sh"
 conda activate maskdp
 cd "./maskdp-taskgeneral"
 pwd
-echo "Pretraining R-MaskDP on walker domain, Proto algorithm..."
+
+algorithm=proto
+echo "Pretraining R-MaskDP on walker domain, $algorithm algorithm..."
 
 python pretrain_mtm.py \
     agent=mdpr \
@@ -36,8 +38,8 @@ python pretrain_mtm.py \
     agent.transformer_cfg.norm='l2' \
     num_grad_steps=400010 \
     domain=walker \
-    algorithm=proto \
-    snapshot_dir=snapshot \
+    algorithm=$algorithm \
+    snapshot_dir=$algorithm \
     resume=false \
     project=exorl_mdp \
     use_wandb=True \

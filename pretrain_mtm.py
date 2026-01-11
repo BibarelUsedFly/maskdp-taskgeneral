@@ -44,7 +44,7 @@ def get_data_seed(seed, num_data_seeds):
     return (seed - 1) % num_data_seeds + 1
 
 # This links it to pretrain.yaml
-@hydra.main(config_path=".", config_name="pretrain_exorl")
+@hydra.main(config_path=".", config_name="pretrain_mtm_exorl")
 def main(cfg):
     work_dir = Path.cwd()
     # Print the actual directory determined by hydra config

@@ -140,14 +140,18 @@ class MaskedDP(nn.Module):
         return x, mask, ids_restore
 
     def forward_decoder(self, x, ids_restore):
+        
         # append mask tokens to sequence
         mask_tokens = self.mask_token.repeat(
             x.shape[0], ids_restore.shape[1] - x.shape[1], 1
         )
+
         x_ = torch.cat([x, mask_tokens], dim=1)
+
         x = torch.gather(
             x_, dim=1, index=ids_restore.unsqueeze(-1).repeat(1, 1, x.shape[2])
         )  # unshuffle
+
         s = self.decoder_state_embed(x[:, 0::3])
         a = self.decoder_action_embed(x[:, 1::3])
         r = self.decoder_reward_embed(x[:, 2::3])
@@ -295,12 +299,11 @@ class MaskedDPAgent:
     def update(self, replay_iter, step=None):
         metrics = dict()
 
+        # Batch is a list of 6 tensors
         batch = next(replay_iter)
-        print(bath.keys())
-        raise Exception 
-        obs, action, _, _, _, _ = utils.to_torch(batch, self.device)
+        obs, action, reward, _, _, _ = utils.to_torch(batch, self.device)
         
         # update critic
-        metrics.update(self.update_mdp(obs, action))
+        metrics.update(self.update_mdp(obs, action, reward))
 
         return metrics

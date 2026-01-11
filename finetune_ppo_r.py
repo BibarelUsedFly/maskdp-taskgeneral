@@ -131,7 +131,7 @@ def get_domain(task):
     return task.split("_", 1)[0]
 
 # This links it to eval.yaml
-@hydra.main(config_path=".", config_name="finetune_ppo")
+@hydra.main(config_path=".", config_name="finetune_ppo_r")
 def main(cfg):
 
     work_dir = Path.cwd()

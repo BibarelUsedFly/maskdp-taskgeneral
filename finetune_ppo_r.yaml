@@ -38,4 +38,4 @@ exp_name: output
 # This is the working directory for the script
 hydra:
   run:
-    dir: "/home/bibarel/workspace/ppo_models/"
+    dir: "/home/bibarel/workspace/r_ppo_models/"

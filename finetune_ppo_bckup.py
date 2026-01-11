@@ -87,6 +87,9 @@ class SaveAndLogCallback(BaseCallback):
         info = self.locals.get("infos")[0]
         # This is wen the step finished an episode
         if "episode" in info:
+            print("INFO")
+            print(info)
+            raise
             ep = info["episode"]
             ep_reward = ep["r"]
             ep_len = ep["l"]
@@ -199,7 +202,7 @@ def main(cfg):
         use_wandb=getattr(cfg, "use_wandb", False),
         verbose=1)
 
-    model.learn(total_timesteps=10000, #cfg.num_grad_steps
+    model.learn(total_timesteps=10, #cfg.num_grad_steps
                 callback=callback) 
 
 if __name__ == "__main__":
