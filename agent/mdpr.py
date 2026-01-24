@@ -20,10 +20,12 @@ class MaskedDP(nn.Module):
         # self.mask_ratio = config.mask_ratio
         self.pe = config.pe
         self.norm = config.norm
-        print("norm", self.norm)
+        print("MDPR: norm", self.norm)
         self.state_embed = nn.Linear(obs_dim, self.n_embd)
         self.action_embed = nn.Linear(action_dim, self.n_embd)
         self.reward_embed = nn.Linear(reward_dim, self.n_embd)
+
+        self.modality_embed = nn.Embedding(3, self.n_embd)
 
         self.encoder_blocks = nn.ModuleList(
             [Block(config) for _ in range(config.n_enc_layer)]
@@ -66,6 +68,13 @@ class MaskedDP(nn.Module):
         pe = torch.from_numpy(pos_embed).float().unsqueeze(0) / 2.0
         self.register_buffer("pos_embed", pe)
         self.register_buffer("decoder_pos_embed", pe)
+
+        timestep_embed = utils.timestep_embedding(self.n_embd, self.max_len,
+            tokens_per_step=3)
+        te = torch.from_numpy(timestep_embed).float().unsqueeze(0) / 2.0
+        self.register_buffer("timestep_embed", te)
+        self.register_buffer("decoder_timestep_embed", te)
+
         self.register_buffer(
             "attn_mask", torch.ones(self.max_len, self.max_len)[None, None, ...]
         )
@@ -122,16 +131,16 @@ class MaskedDP(nn.Module):
                 device=states.device, dtype=states.dtype
             )
 
-        s_emb = self.state_embed(states)
-        a_emb = self.action_embed(actions)
-        r_emb = self.reward_embed(rewards)
+        s_emb = self.state_embed(states) + self.modality_embed.weight[0]
+        a_emb = self.action_embed(actions) + self.modality_embed.weight[1]
+        r_emb = self.reward_embed(rewards) + self.modality_embed.weight[2]
 
         x = (
             torch.stack([s_emb, a_emb, r_emb], dim=1)
             .permute(0, 2, 1, 3)
             .reshape(batch_size, 3 * T, self.n_embd))
 
-        x = x + self.pos_embed
+        x = x + self.timestep_embed
         x, mask, ids_restore = self.random_masking(x, mask_ratio)
         # apply Transformer blocks
         for blk in self.encoder_blocks:
@@ -152,14 +161,15 @@ class MaskedDP(nn.Module):
             x_, dim=1, index=ids_restore.unsqueeze(-1).repeat(1, 1, x.shape[2])
         )  # unshuffle
 
-        s = self.decoder_state_embed(x[:, 0::3])
-        a = self.decoder_action_embed(x[:, 1::3])
-        r = self.decoder_reward_embed(x[:, 2::3])
+        s = self.decoder_state_embed(x[:, 0::3]) + self.modality_embed.weight[0]
+        a = self.decoder_action_embed(x[:, 1::3]) + self.modality_embed.weight[1]
+        r = self.decoder_reward_embed(x[:, 2::3]) + self.modality_embed.weight[2]
 
         x = torch.stack([s, a, r], dim=1).permute(0, 2, 1, 3).reshape_as(x)
 
         # add pos embed
-        x = x + self.decoder_pos_embed
+        # x = x + self.decoder_pos_embed
+        x = x + self.decoder_timestep_embed
 
         # apply Transformer blocks
         for blk in self.decoder_blocks:
@@ -188,27 +198,25 @@ class MaskedDP(nn.Module):
         loss_r = None
         if target_r is not None and pred_r is not None:
             loss_r = (pred_r - target_r) ** 2
-            loss = (
-                torch.stack(
+        else:
+            loss_r = torch.zeros_like(loss_s)
+
+        loss = (torch.stack(
                     [loss_s.mean(dim=-1),
                      loss_a.mean(dim=-1),
                      loss_r.mean(dim=-1)], dim=1)
                 .permute(0, 2, 1)
-                .reshape(batch_size, 3 * T)
-            )
-        else: # If reward is not provided, we don't include it in the loss
-            loss = (
-                torch.stack([loss_s.mean(dim=-1), loss_a.mean(dim=-1)], dim=1)
-                .permute(0, 2, 1)
-                .reshape(batch_size, 2 * T)
-            )
+                .reshape(batch_size, 3 * T)) # (B, 3T)
+
+        # If reward is not provided, zero-out reward losses
+        if target_r is None:
+            loss[:, 2::3] = 0.0 
+            
         masked_loss = (loss * mask).sum() / mask.sum()  # mean loss on removed patches
         loss_s = loss_s.mean()
         loss_a = loss_a.mean()
-        if loss_r is not None:
-            loss_r = loss_r.mean()
-            return masked_loss, loss_s, loss_a, loss_r
-        return masked_loss, loss_s, loss_a
+        loss_r = loss_r.mean()
+        return masked_loss, loss_s, loss_a, loss_r
 
 
 class MaskedDPAgent:
@@ -223,12 +231,14 @@ class MaskedDPAgent:
         use_tb,
         mask_ratio,
         transformer_cfg,
+        rewards_present
     ):
         self.action_dim = action_shape[0]
         self.lr = lr
         self.device = device
         self.use_tb = use_tb
         self.config = transformer_cfg
+        self.rewards_present = rewards_present
 
         # models
         self.model = MaskedDP(obs_shape[0], action_shape[0], transformer_cfg).to(device)
@@ -254,11 +264,16 @@ class MaskedDPAgent:
         pred_s, pred_a, pred_r = self.model.forward_decoder(
             latent, ids_restore
         )  # [N, L, p*p*3]
-        mask_loss, state_loss, action_loss, reward_loss = \
-        self.model.forward_loss(
-            states, actions, pred_s, pred_a,
-            mask, target_r=rewards, pred_r=pred_r
-        )
+        if self.rewards_present:
+            mask_loss, state_loss, action_loss, reward_loss = \
+                self.model.forward_loss(
+                    states, actions, pred_s, pred_a,
+                    mask, target_r=rewards, pred_r=pred_r)
+        else:
+            mask_loss, state_loss, action_loss, reward_loss = \
+                self.model.forward_loss(
+                    states, actions, pred_s, pred_a,
+                    mask, target_r=None, pred_r=None)
         if self.config.loss == "masked":
             loss = mask_loss
         elif self.config.loss == "total":
@@ -273,6 +288,7 @@ class MaskedDPAgent:
         metrics["mask_loss"] = mask_loss.item()
         metrics["state_loss"] = state_loss.item()
         metrics["action_loss"] = action_loss.item()
+        metrics["reward_loss"] = reward_loss.item()
 
         return metrics
 

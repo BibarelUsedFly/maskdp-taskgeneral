@@ -69,8 +69,7 @@ def main(cfg):
     )
 
     # Create a snapshot directory for the task
-    snapshot_dir = work_dir / Path(cfg.snapshot_dir) / \
-                   cfg.domain / str(cfg.seed) / cfg.algorithm
+    snapshot_dir = work_dir / cfg.domain / cfg.algorithm / str(cfg.seed) 
     snapshot_dir.mkdir(exist_ok=True, parents=True)
 
     # Create logger

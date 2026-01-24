@@ -20,3 +20,4 @@ transformer_cfg:
   pe: 'fixed'
   loss: 'total'
   norm: 'l2'
+rewards_present: ??? # True if the dataset for training includes rewards

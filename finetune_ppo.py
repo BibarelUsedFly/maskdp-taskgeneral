@@ -8,6 +8,9 @@ os.environ["MUJOCO_GL"] = "disable"
 
 from pathlib import Path
 
+import csv
+import time
+
 import hydra
 import numpy as np
 import torch
@@ -76,34 +79,60 @@ class SaveAndLogCallback(BaseCallback):
                 snapshot_dir: Path,
                 save_every_steps: int,
                 use_wandb: bool = False,
-                verbose: int = 0):
+                verbose: int = 0,
+                csv_name: str = 'ppo_train_log.csv'):
                 
         super().__init__(verbose)
         self.snapshot_dir = snapshot_dir
         self.save_every_steps = save_every_steps
         self.use_wandb = use_wandb
 
+        self.csv_path = snapshot_dir / csv_name
+
+    def _init_callback(self):
+        '''This is called just once at training start'''
+        self.snapshot_dir.mkdir(parents=True, exist_ok=True)
+
+        file_exists = self.csv_path.exists()
+        self._csv_file = self.csv_path.open("a", newline="")
+        self._csv_writer = csv.DictWriter(self._csv_file,
+            fieldnames=[
+                "wall_time",
+                "timesteps",
+                "episode_return",
+                "episode_length"])
+        if not file_exists:
+            self._csv_writer.writeheader()
+            self._csv_file.flush()
+
     def _on_step(self) -> bool:
-        info = self.locals.get("infos")[0]
-        # This is wen the step finished an episode
-        if "episode" in info:
-            ep = info["episode"]
-            ep_reward = ep["r"]
-            ep_len = ep["l"]
+        infos = self.locals.get("infos", [])
+        if infos:
+            info = infos[0]
 
-            if self.verbose > 0:
-                print(f"[PPO] ep_reward={ep_reward:.2f}, len={ep_len}")
+            # This is when the step finished an episode
+            if "episode" in info:
+                ep = info["episode"]
+                ep_reward = float(ep["r"])
+                ep_len = int(ep["l"])
 
-            if self.use_wandb:
-                wandb.log(
-                    {"train/episode_return": ep_reward,
-                     "train/episode_length": ep_len,
-                     "train/num_timesteps": self.num_timesteps},
-                    step=self.num_timesteps,
-                )
-        else:
-            # print("No episode in info")
-            pass
+                # --- CSV log ---
+                row = {"wall_time": time.time(),
+                       "timesteps": int(self.num_timesteps),
+                       "episode_return": ep_reward,
+                       "episode_length": ep_len}
+                self._csv_writer.writerow(row)
+                self._csv_file.flush()
+
+                if self.verbose > 0:
+                    print(f"[PPO] ep_reward={ep_reward:.2f}, len={ep_len}")
+
+                if self.use_wandb:
+                    wandb.log(
+                        {"train/episode_return": ep_reward,
+                        "train/episode_length": ep_len,
+                        "train/num_timesteps": self.num_timesteps},
+                        step=self.num_timesteps)
 
         # Save checkpoints
         if self.num_timesteps % self.save_every_steps == 0:
@@ -114,8 +143,13 @@ class SaveAndLogCallback(BaseCallback):
 
         ## Save actor networks weights as MaskDP
         ## The just run the eval script on the checkpoints
-
         return True
+
+    def _on_training_end(self):
+        if self._csv_file is not None:
+            self._csv_file.flush()
+            self._csv_file.close()
+            self._csv_file = None
 
 
 
@@ -199,7 +233,7 @@ def main(cfg):
         use_wandb=getattr(cfg, "use_wandb", False),
         verbose=1)
 
-    model.learn(total_timesteps=10000, #cfg.num_grad_steps
+    model.learn(total_timesteps=cfg.num_grad_steps,
                 callback=callback) 
 
 if __name__ == "__main__":

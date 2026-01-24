@@ -18,7 +18,7 @@ class Actor(nn.Module):
         super().__init__()
         self.n_embd = config.n_embd
         self.max_len = attention_length
-        print("attn length", self.max_len)
+        print("Actor: attn length", self.max_len)
         self.mdp = MaskedDP(obs_dim, action_dim, config)
         self.ln = nn.LayerNorm(self.n_embd)
         self.action_head = nn.Sequential(
@@ -46,7 +46,7 @@ class Actor(nn.Module):
         #             param.requires_grad = True
 
     def forward(self, obs_seq, std):
-        batch_size, T, obs_dim = obs_seq.size()
+        batch_size, T, obs_dim = obs_seq.size() # (batch, max_length, latent_dim) (24,)
         x = self.mdp.state_embed(obs_seq) + self.mdp.pos_embed[:, :T]
         # into attention
         for blk in self.mdp.encoder_blocks:

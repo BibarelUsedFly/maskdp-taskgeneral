@@ -24,10 +24,15 @@ import utils
 from stable_baselines3 import PPO
 from dmc_to_gym import DMCGymWrapper
 from stable_baselines3.common.monitor import Monitor # This wraps gym envs
+
 # This allows to make a custom callback class to collect training data
 from stable_baselines3.common.callbacks import BaseCallback
+
 # This is for the custom policy using MaskDP as an actor
 from stable_baselines3.common.policies import ActorCriticPolicy, MlpExtractor
+
+# This is for a custom features extractor that avoids flattening the observation stack
+from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 from stable_baselines3.common.env_checker import check_env
 
 # Actor expects observation sequence of size (batch, timesteps, dimension)
@@ -40,16 +45,28 @@ import omegaconf
 
 torch.backends.cudnn.benchmark = True
 
+class IdentityExtractor(BaseFeaturesExtractor):
+    """
+    Keeps obs as (T, obs_dim) instead of flattening.
+    """
+    def __init__(self, observation_space): # gym.spaces.Box
+        # observation_space.shape = (T, obs_dim)
+        self.T, self.obs_dim = observation_space.shape
+        super().__init__(observation_space, features_dim=self.T * self.obs_dim)
+
+    def forward(self, observations: torch.Tensor) -> torch.Tensor:
+        return observations
+
 class MaskDPActorPPOPolicy(ActorCriticPolicy):
     """
     PPO policy that uses default feature extractor and value network from SB3,
     but replaces the actor with a pre-trained MaskDP Actor.
     """
-
     def __init__(self, *args,
-                 maskdp_actor: Actor, fixed_std: float=0.1, **kwargs):
+                 maskdp_actor: Actor, context_length: int, fixed_std: float=0.1, **kwargs):
         super().__init__(*args, **kwargs)
         self.maskdp_actor = maskdp_actor
+        self.context_len = context_length
         self.fixed_std = fixed_std
 
     def _build_mlp_extractor(self):
@@ -61,19 +78,26 @@ class MaskDPActorPPOPolicy(ActorCriticPolicy):
             net_arch=net_arch,
             activation_fn=self.activation_fn)
 
-    def _get_action_dist_from_latent(self, latent_pi, latent_sde=None):
+    def _get_action_dist_from_latent(self, latent_pi):
+        print("Using actor:", self.maskdp_actor.__class__.__name__)
 
-        # (batch, state_dim) 
-        # barch is always 1 here though
-        state = latent_pi.unsqueeze(1)  # (batch, 1, state_dim)
+        # latent_pi comes in (B, T * state_dim)
+        B, flat_dim = latent_pi.shape
+        T = self.context_len
+        state_dim = flat_dim // T
+        obs_seq = latent_pi.reshape(B, T, state_dim)
+        print("obs_seq:", obs_seq.shape)
+
+        ret = self.maskdp_actor(obs_seq) # (B, 3T, embd_dim)
+        print("Pred act shape:", ret.shape)
 
         # MaskDP Actor returns a distribution
         # (batch, 1, action_dim)
-        dist = self.maskdp_actor(state, std=self.fixed_std)
-        mean_actions = dist.mean[:, -1, :]  # (batch, action_dim)
+        # dist = self.maskdp_actor(state, std=self.fixed_std)
+        # mean_actions = dist.mean[:, -1, :]  # (batch, action_dim)
 
         # return SB3's Gaussian distribution
-        return self.action_dist.proba_distribution(mean_actions, self.log_std)
+        return ';-;'
 
 class SaveAndLogCallback(BaseCallback):
     def __init__(self,
@@ -177,10 +201,12 @@ def main(cfg):
 
     # Create dmc env and convert to gym (Not gymnasium)
     dmc_env = dmc.make(cfg.task, seed=cfg.seed)
-    env = DMCGymWrapper(dmc_env)
+    env = DMCGymWrapper(dmc_env, obs_seq_len=cfg.agent.transformer_cfg.traj_length)
     check_env(env) # This verifies env actually complies
     env = Monitor(env) # Wraps for SB3
 
+    print("Obs Shape for agent:", dmc_env.observation_spec().shape)
+    print("Act Shape for agent:", dmc_env.action_spec().shape)
     agent = hydra.utils.instantiate(
         cfg.agent,
         obs_shape=dmc_env.observation_spec().shape,
@@ -193,30 +219,28 @@ def main(cfg):
         print("[load_state_dict] unexpected keys:", unexpected)
 
     # === Build MaskDP Actor for PPO ===
-    obs_dim = env.observation_space.shape[0] # 24
-    action_dim = env.action_space.shape[0]   # 6
-
-    ## ActorR Testing
-    maskdp_actor = ActorR().to(device)
+    obs_dim = env.observation_space.shape # (T, latent_size)
+    action_dim = env.action_space.shape   # (num_actions,)
+    
+    print("Obs dim:", obs_dim)
+    print("Act dim:", action_dim)
 
     # # Number of tokens is (3 * trajectory length) because each step in
     # # the trajectory has one token for state, one for action and one for reward
-    # attn_len = cfg.agent.transformer_cfg.traj_length * 3
-    # # finetune doesn't actually get used, so it can be whatever
-    # maskdp_actor = Actor(
-    #     obs_dim=obs_dim,
-    #     action_dim=action_dim,
-    #     attention_length=attn_len,
-    #     finetune='whatever',
-    #     config=cfg.agent.transformer_cfg,
-    # ).to(device)
+    attn_len = cfg.agent.transformer_cfg.traj_length * 3
+    maskdp_actor = ActorR(
+        obs_dim[-1], action_dim[-1],
+        attn_len,
+        cfg.agent.transformer_cfg
+    ).to(device)
 
     # Load weights
-    maskdp_actor.mdp.load_state_dict(agent.model.state_dict())
+    # maskdp_actor.mdp.load_state_dict(agent.model.state_dict())
 
     policy_kwargs = dict(
         maskdp_actor=maskdp_actor,
-        fixed_std=cfg.fixed_std if "fixed_std" in cfg else 0.1)
+        context_length=cfg.agent.transformer_cfg.traj_length,
+        fixed_std=cfg.fixed_std if "fixed_std" in cfg else 0.1  )
 
     model = PPO(
         policy=MaskDPActorPPOPolicy,

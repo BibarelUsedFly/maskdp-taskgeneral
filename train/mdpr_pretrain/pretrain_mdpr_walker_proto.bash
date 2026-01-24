@@ -1,11 +1,15 @@
 #!/bin/bash
-#SBATCH --job-name=R-PPO_Finetune          # Job name
-#SBATCH --mail-type=NONE                 # Mail (NONE, BEGIN, END, FAIL, ALL)
+#SBATCH --job-name=r-exorl_pretrain_walker_proto       # Job name
+#SBATCH --mail-type=BEGIN,END,FAIL       # Mail (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=fivillagran@uc.cl    # El mail del usuario
 #SBATCH --output=logs/%x-%j.out          # Log file (%x=job-name, %j=job-ID)
 #SBATCH --error=logs/%x-%j.err           # Error log                    
 #SBATCH --gres=gpu:1                     # Number of GPUs
-#SBATCH --cpus-per-task=8                # CPU cores
+#SBATCH --cpus-per-task=16               # CPU cores
+#SBATCH --nodelist=peteroa
+#SBATCH --partition=debug
+#SBATCH --account=defaultacc             
+#SBATCH --qos=normal 
 #SBATCH --time=24:00:00
 #SBATCH --mem-per-cpu=8G
 #SBATCH --nodes=1
@@ -15,18 +19,12 @@
 
 # --- Environment setup ---
 source "./miniconda3/etc/profile.d/conda.sh"
-conda activate maskdp-ppo
+conda activate maskdp
 cd "./maskdp-taskgeneral"
 pwd
-echo "(Proto) Finetuning R-MaskDP on PPO."
+echo "Pretraining MaskDP on walker domain, Proto algorithm..."
 
-export PYTHONWARNINGS="ignore"
-export HYDRA_FULL_ERROR=1 
-python finetune_ppo_r_test.py \
-    task=walker_run \
-    algorithm=icm \
-    resume_dir=/home/bibarel/workspace/old_mdpr_exorl_models/walker/proto/1 \
-    seed=1 \
+python pretrain_exorl.py \
     agent=mdpr \
     agent.batch_size=384 \
     agent.transformer_cfg.traj_length=64 \
@@ -36,8 +34,12 @@ python finetune_ppo_r_test.py \
     agent.transformer_cfg.n_enc_layer=3 \
     agent.transformer_cfg.n_dec_layer=2 \
     agent.transformer_cfg.norm='l2' \
-    agent.rewards_present=True \
-    use_wandb=false \
-    hydra.run.dir=/home/bibarel/workspace/r_ppo_models/
-
-# resume_dir=/home/bibarel/workspace/exorl_models/output/2025.10.23/033220_mdp/snapshot/walker/1/icm \
+    agent.rewards_present=False \
+    num_grad_steps=400010 \
+    domain=walker \
+    algorithm=proto \
+    resume=false \
+    project=exorl_mdpr \
+    use_wandb=True \
+    seed=1 \
+    hydra.run.dir="/home/bibarel/workspace/mdpr_exorl_models"

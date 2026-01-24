@@ -352,6 +352,26 @@ def get_1d_sincos_pos_embed_from_grid(embed_dim, pos):
     return emb
 
 
+def timestep_embedding(embed_dim, seq_len, tokens_per_step=3):
+    """
+    embed_dim: output dimension for each position
+    seq_len: Length of the sequence in tokens
+    tokens_per_step: How many tokens in each timestep. Default (S, A, R)
+    """
+    assert embed_dim % 2 == 0
+    assert seq_len % tokens_per_step == 0
+
+    timesteps = seq_len // tokens_per_step
+    omega = np.arange(embed_dim // 2, dtype=np.float32)
+    omega /= embed_dim / 2.0
+    omega = 1.0 / 10000**omega  # (D/2,)
+    timesteps = np.arange(timesteps, dtype=np.float32)
+    out = np.einsum("t,d->td", timesteps, omega)  # (T, D/2), outer product
+
+    emb = np.concatenate([np.sin(out), np.cos(out)], axis=1)  # (T, D)
+    emb = np.repeat(emb, repeats=tokens_per_step, axis=0)     # (3T, D)
+    return emb
+
 # --------------------------------------------------------
 # Interpolate position embeddings for high-resolution
 # References:
