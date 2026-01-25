@@ -22,10 +22,10 @@ echo "(Proto) Finetuning R-MaskDP on PPO."
 
 export PYTHONWARNINGS="ignore"
 export HYDRA_FULL_ERROR=1 
-python finetune_ppo_r_test.py \
+python finetune_ppo_r.py \
     task=walker_run \
-    algorithm=icm \
-    resume_dir=/home/bibarel/workspace/old_mdpr_exorl_models/walker/proto/1 \
+    algorithm=proto \
+    resume_dir=/home/bibarel/workspace/mdpr_exorl_models/walker/proto/1 \
     seed=1 \
     agent=mdpr \
     agent.batch_size=384 \

@@ -79,25 +79,20 @@ class MaskDPActorPPOPolicy(ActorCriticPolicy):
             activation_fn=self.activation_fn)
 
     def _get_action_dist_from_latent(self, latent_pi):
-        print("Using actor:", self.maskdp_actor.__class__.__name__)
+        # print("Using actor:", self.maskdp_actor.__class__.__name__)
 
         # latent_pi comes in (B, T * state_dim)
         B, flat_dim = latent_pi.shape
         T = self.context_len
         state_dim = flat_dim // T
         obs_seq = latent_pi.reshape(B, T, state_dim)
-        print("obs_seq:", obs_seq.shape)
+        # print("obs_seq:", obs_seq.shape)
 
-        ret = self.maskdp_actor(obs_seq) # (B, 3T, embd_dim)
-        print("Pred act shape:", ret.shape)
-
-        # MaskDP Actor returns a distribution
-        # (batch, 1, action_dim)
-        # dist = self.maskdp_actor(state, std=self.fixed_std)
-        # mean_actions = dist.mean[:, -1, :]  # (batch, action_dim)
+        mean_action = self.maskdp_actor(obs_seq) # (B, 3T, embd_dim)
+        # print("Pred act shape:", ret.shape)
 
         # return SB3's Gaussian distribution
-        return ';-;'
+        return self.action_dist.proba_distribution(mean_action, self.log_std)
 
 class SaveAndLogCallback(BaseCallback):
     def __init__(self,
@@ -169,7 +164,6 @@ class SaveAndLogCallback(BaseCallback):
             self._csv_file.flush()
             self._csv_file.close()
             self._csv_file = None
-
 
 
 def get_dir(cfg):

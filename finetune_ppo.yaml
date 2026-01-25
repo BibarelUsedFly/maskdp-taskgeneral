@@ -8,7 +8,7 @@ algorithm: icm
 discount: 0.99
 
 # train settings
-num_grad_steps: 400010 # NUMBER  OF TRAINING STEPS
+num_grad_steps: 50010 # NUMBER  OF TRAINING STEPS
 log_every_steps: 1000
 # eval
 eval_every_steps: 10000
